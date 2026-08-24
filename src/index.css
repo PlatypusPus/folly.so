@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #0b0f19;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-form-serif {
+  font-family: 'Fraunces', Georgia, serif;
+}
+.font-form-display {
+  font-family: 'DM Serif Display', Georgia, serif;
+}
+
+.editor-canvas {
+  scrollbar-gutter: stable;
+}
+
+img {
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(255, 84, 112, 0.25);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9aa0ab;
+}
+
+textarea {
+  resize: none;
+}
+
+/* block drag */
+.dragging {
+  opacity: 0.4;
+}
+
+.drop-insert {
+  border-top: 2px solid #ff5470;
+  margin-top: -2px;
+}
+
+/* animated underline highlight used on landing */
+.highlight {
+  background-image: linear-gradient(100deg, rgba(255, 84, 112, 0.16), rgba(255, 84, 112, 0.16));
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 42%;
+}
+
+.dot-bg {
+  background-image: radial-gradient(circle, #0b0f190d 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+input[type='range'] {
+  accent-color: #ff5470;
+}
+
+/* editor contenteditable */
+[contenteditable='true'] {
+  outline: none;
+}
+
+.empty-placeholder:empty::before {
+  content: attr(data-placeholder);
+  color: #b7bdc7;
+  pointer-events: none;
+  font-weight: 400;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-pop {
+  animation: pop-in 0.14s ease-out both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade-in 0.18s ease-out both;
+}
