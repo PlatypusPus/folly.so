@@ -208,8 +208,23 @@ export default function Editor() {
         onOpenShare={() => setShareOpen(true)}
       />
 
-      <main className="editor-canvas flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-5 pt-10 sm:px-8">
+      <main className="editor-canvas flex-1 overflow-y-auto bg-white">
+        {form.settings.coverImageUrl && (
+          <div className="w-full h-[180px] sm:h-[220px] overflow-hidden relative">
+            <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+          </div>
+        )}
+        <div className="mx-auto w-full max-w-2xl px-5 pt-10 sm:px-8 relative">
+          {form.settings.logoUrl && (
+            <div
+              className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
+                form.settings.coverImageUrl ? '-mt-20 sm:-mt-22 mb-6 z-10 relative bg-white' : 'mb-6'
+              }`}
+              style={{ borderColor: '#ffffff' }}
+            >
+              <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+            </div>
+          )}
           <TitleEditor title={form.settings.title} onChange={(t) => updateSettings(form.id, { title: t })} />
 
           <div className="mt-8 space-y-1 pb-40">

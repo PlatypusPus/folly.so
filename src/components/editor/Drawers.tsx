@@ -137,6 +137,30 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                   ))}
                 </div>
               </div>
+
+              <div className="mt-6 border-t border-ink/[0.06] pt-5 space-y-3">
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-wider text-ink/40">Header Media</div>
+                <div>
+                  <div className="mb-1 text-[11px] font-medium text-ink/50">Logo URL</div>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={form.settings.logoUrl ?? ''}
+                    onChange={(e) => updateSettings(form.id, { logoUrl: e.target.value })}
+                    className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[13px] text-ink outline-none focus:border-ink"
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px] font-medium text-ink/50">Cover Image URL</div>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/cover.jpg"
+                    value={form.settings.coverImageUrl ?? ''}
+                    onChange={(e) => updateSettings(form.id, { coverImageUrl: e.target.value })}
+                    className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[13px] text-ink outline-none focus:border-ink"
+                  />
+                </div>
+              </div>
             </>
           ) : (
             <>

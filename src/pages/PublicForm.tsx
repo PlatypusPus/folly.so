@@ -197,37 +197,54 @@ export default function PublicForm() {
 
     return (
       <div
-        className="flex min-h-screen flex-col items-center justify-center px-6"
+        className="flex min-h-screen flex-col"
         style={{ background: theme.background, fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}
       >
-        <div className="w-full max-w-xl text-center animate-pop">
-          <span
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
-            style={{ background: theme.button, color: theme.buttonText }}
-          >
-            <svg viewBox="0 0 24 24" className="h-8 w-8">
-              <path d="m5 13 4 4L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <h1 className="font-form-serif mt-6 text-4xl font-semibold leading-tight" style={{ fontFamily: headerFont }}>
-            {form.settings.thankYouMessage}
-          </h1>
-          {visited && <p className="mt-3 text-[14px] opacity-50">Response recorded</p>}
-          {ctaText && ctaUrl && (
-            <div className="mt-8">
-              <a
-                href={sanitizeUrl(ctaUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block rounded-full px-6 py-3 text-[14px] font-bold shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
-                style={{ background: theme.button, color: theme.buttonText }}
-              >
-                {ctaText}
-              </a>
+        {form.settings.coverImageUrl && (
+          <div className="w-full h-[180px] sm:h-[260px] overflow-hidden relative">
+            <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+          </div>
+        )}
+        <main className="mx-auto w-full max-w-2xl flex-1 px-6 pb-16 pt-12 flex flex-col items-center justify-center text-center relative">
+          {form.settings.logoUrl && (
+            <div
+              className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
+                form.settings.coverImageUrl ? '-mt-22 sm:-mt-24 mb-8 z-10 relative' : 'mb-8'
+              }`}
+              style={{ borderColor: theme.background }}
+            >
+              <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>
           )}
-        </div>
-        {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
+          <div className="w-full max-w-xl animate-pop flex flex-col items-center">
+            <span
+              className="flex h-16 w-16 items-center justify-center rounded-full"
+              style={{ background: theme.button, color: theme.buttonText }}
+            >
+              <svg viewBox="0 0 24 24" className="h-8 w-8">
+                <path d="m5 13 4 4L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <h1 className="font-form-serif mt-6 text-3xl font-semibold leading-tight sm:text-4xl" style={{ fontFamily: headerFont }}>
+              {form.settings.thankYouMessage}
+            </h1>
+            {visited && <p className="mt-3 text-[14px] opacity-50">Response recorded</p>}
+            {ctaText && ctaUrl && (
+              <div className="mt-8">
+                <a
+                  href={sanitizeUrl(ctaUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block rounded-full px-6 py-3 text-[14px] font-bold shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
+                  style={{ background: theme.button, color: theme.buttonText }}
+                >
+                  {ctaText}
+                </a>
+              </div>
+            )}
+          </div>
+          {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
+        </main>
       </div>
     )
   }
@@ -240,13 +257,29 @@ export default function PublicForm() {
         <div className="h-full transition-all duration-300" style={{ width: `${progress}%`, background: theme.button }} />
       </div>
 
+      {form.settings.coverImageUrl && (
+        <div className="w-full h-[180px] sm:h-[260px] overflow-hidden relative">
+          <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+        </div>
+      )}
+
       {pageCount > 1 && (
         <div className="mt-4 flex items-center justify-end px-6 text-[13px]" style={{ opacity: 0.5 }}>
           {safePage + 1} / {pageCount}
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10 sm:py-16">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 pb-16 pt-10 relative">
+        {form.settings.logoUrl && (
+          <div
+            className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
+              form.settings.coverImageUrl ? '-mt-20 sm:-mt-22 mb-6 z-10 relative' : 'mb-6'
+            }`}
+            style={{ borderColor: theme.background }}
+          >
+            <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+          </div>
+        )}
         <div className="mb-10">
           <div className="font-form-serif text-[38px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]" style={{ fontFamily: headerFont, color: dark ? '#fff' : '#1c1c1e' }}>
             <RichText text={form.settings.title} />
