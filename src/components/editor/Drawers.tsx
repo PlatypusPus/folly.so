@@ -210,6 +210,25 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                     </div>
                   </div>
                 </div>
+                <div className="border-t border-ink/[0.06] pt-3">
+                  <div className="mb-1.5 text-[13px] font-bold text-ink/75">URL Hidden Fields</div>
+                  <input
+                    type="text"
+                    placeholder="utm_source, userId, referral"
+                    value={(form.settings.hiddenFields ?? []).join(', ')}
+                    onChange={(e) => {
+                      const list = e.target.value
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter((s) => s.length > 0)
+                      updateSettings(form.id, { hiddenFields: list })
+                    }}
+                    className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[14px] text-ink outline-none focus:border-ink"
+                  />
+                  <p className="mt-1.5 text-[11px] text-ink/40">
+                    Specify URL query variables to capture automatically from the page load (comma-separated).
+                  </p>
+                </div>
                 <ToggleRow
                   label="Show progress & question numbers"
                   on={!!form.settings.showProgress}

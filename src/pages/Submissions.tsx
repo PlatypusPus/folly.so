@@ -42,7 +42,8 @@ export default function Submissions() {
 
   const exportToCSV = () => {
     if (submissions.length === 0) return
-    const headers = ['Submission ID', 'Submitted At', ...questions.map(q => getQuestionLabel(q))]
+    const hiddenFields = form.settings.hiddenFields ?? []
+    const headers = ['Submission ID', 'Submitted At', ...questions.map(q => getQuestionLabel(q)), ...hiddenFields]
     const rows = submissions.map(s => [
       s.id,
       new Date(s.submittedAt).toISOString(),
@@ -53,6 +54,11 @@ export default function Submissions() {
         if (typeof val === 'object' && 'name' in val) {
           return `${val.name} (${(val.size / 1024).toFixed(1)} KB)`
         }
+        return String(val)
+      }),
+      ...hiddenFields.map(field => {
+        const val = s.answers[field]
+        if (val === undefined || val === null) return ''
         return String(val)
       })
     ])
@@ -176,6 +182,20 @@ export default function Submissions() {
                         </span>
                         <span className={`flex-1 text-[14px] ${hasValue ? 'text-ink' : 'italic text-ink/35'}`}>
                           {hasValue ? formatAnswer(value) : 'no answer'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {(form.settings.hiddenFields ?? []).map((field) => {
+                    const value = s.answers[field] as AnswerValue | undefined
+                    const hasValue = value !== undefined && value !== null && value !== ''
+                    return (
+                      <div key={field} className="flex items-start gap-4 px-5 py-3 bg-brand-50/10">
+                        <span className="w-3/12 min-w-[140px] shrink-0 pt-0.5 text-[13px] font-medium text-brand-600/70">
+                          {field} <span className="ml-1 text-[9px] font-bold uppercase tracking-wider text-brand-500 bg-brand-50 px-1 py-0.5 rounded">Hidden</span>
+                        </span>
+                        <span className={`flex-1 text-[14px] ${hasValue ? 'text-ink' : 'italic text-ink/35'}`}>
+                          {hasValue ? formatAnswer(value) : '—'}
                         </span>
                       </div>
                     )

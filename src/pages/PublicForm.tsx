@@ -98,6 +98,28 @@ function BlockView({
   )
 }
 
+function getUrlQueryParams(): Record<string, string> {
+  const params: Record<string, string> = {}
+  try {
+    const fullSearch = window.location.search
+    const hashParts = window.location.hash.split('?')
+    const hashSearch = hashParts[1]
+    const searchParams = new URLSearchParams(fullSearch || '')
+    searchParams.forEach((val, key) => {
+      params[key] = val
+    })
+    if (hashSearch) {
+      const hashParams = new URLSearchParams(`?${hashSearch}`)
+      hashParams.forEach((val, key) => {
+        params[key] = val
+      })
+    }
+  } catch (err) {
+    console.error('Error parsing query params:', err)
+  }
+  return params
+}
+
 export default function PublicForm() {
   const { formId = '' } = useParams()
   const form = useForms((s) => s.forms.find((f) => f.id === formId))
@@ -119,11 +141,20 @@ export default function PublicForm() {
   }, [])
 
   useEffect(() => {
-    setAnswers({})
+    const qParams = getUrlQueryParams()
+    const initialAnswers: Record<string, AnswerValue> = {}
+    if (form?.settings.hiddenFields) {
+      for (const field of form.settings.hiddenFields) {
+        if (qParams[field] !== undefined) {
+          initialAnswers[field] = qParams[field]
+        }
+      }
+    }
+    setAnswers(initialAnswers)
     setErrors({})
     setCurrentPage(0)
     setSubmitted(false)
-  }, [formId])
+  }, [formId, form?.settings.hiddenFields])
 
   if (!form) return notFound()
 
@@ -171,6 +202,14 @@ export default function PublicForm() {
         const v = answers[b.id]
         if (Array.isArray(v) && v.length === 0) collected[b.id] = null
         else collected[b.id] = v ?? null
+      }
+    }
+    if (form.settings.hiddenFields) {
+      for (const field of form.settings.hiddenFields) {
+        const v = answers[field]
+        if (v !== undefined && v !== null) {
+          collected[field] = v
+        }
       }
     }
     addSubmission(form.id, collected)
