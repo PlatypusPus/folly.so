@@ -150,6 +150,42 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                     className="w-full rounded-xl border border-ink/15 px-3 py-2.5 text-[14px] text-ink outline-none focus:border-ink"
                   />
                 </div>
+                <div>
+                  <div className="mb-1.5 text-[13px] font-semibold text-ink/70">Thank you redirect URL</div>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/thanks"
+                    value={form.settings.thankYouRedirectUrl ?? ''}
+                    onChange={(e) => updateSettings(form.id, { thankYouRedirectUrl: e.target.value })}
+                    className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[14px] text-ink outline-none focus:border-ink"
+                  />
+                  <p className="mt-1 text-[11px] text-ink/40">Redirects the user immediately after submitting the form.</p>
+                </div>
+                <div className="border-t border-ink/[0.06] pt-3">
+                  <div className="mb-1.5 text-[13px] font-bold text-ink/75">Thank You Call-To-Action Button</div>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="mb-1 text-[11px] font-medium text-ink/50">Button Label</div>
+                      <input
+                        type="text"
+                        placeholder="Visit our website"
+                        value={form.settings.thankYouButtonText ?? ''}
+                        onChange={(e) => updateSettings(form.id, { thankYouButtonText: e.target.value })}
+                        className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[14px] text-ink outline-none focus:border-ink"
+                      />
+                    </div>
+                    <div>
+                      <div className="mb-1 text-[11px] font-medium text-ink/50">Button Redirect Link</div>
+                      <input
+                        type="url"
+                        placeholder="https://example.com"
+                        value={form.settings.thankYouButtonUrl ?? ''}
+                        onChange={(e) => updateSettings(form.id, { thankYouButtonUrl: e.target.value })}
+                        className="w-full rounded-xl border border-ink/15 px-3 py-2 text-[14px] text-ink outline-none focus:border-ink"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <ToggleRow
                   label="Show progress & question numbers"
                   on={!!form.settings.showProgress}

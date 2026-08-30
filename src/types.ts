@@ -68,6 +68,9 @@ export interface FormSettings {
   title: string
   description?: string
   thankYouMessage: string
+  thankYouRedirectUrl?: string
+  thankYouButtonText?: string
+  thankYouButtonUrl?: string
   accent?: string
   theme: FormTheme
   showProgress: boolean

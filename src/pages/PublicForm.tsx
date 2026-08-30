@@ -174,6 +174,16 @@ export default function PublicForm() {
       }
     }
     addSubmission(form.id, collected)
+
+    // Redirect logic:
+    if (form.settings.thankYouRedirectUrl && form.settings.thankYouRedirectUrl.trim() !== '') {
+      const redirectUrl = sanitizeUrl(form.settings.thankYouRedirectUrl)
+      if (redirectUrl) {
+        window.location.replace(redirectUrl)
+        return
+      }
+    }
+
     // keep file names off the persisted summary to keep localStorage tidy
     setSubmitted(true)
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -182,6 +192,9 @@ export default function PublicForm() {
   const headerFont = blockHeadingFontName(font)
 
   if (submitted) {
+    const ctaText = form.settings.thankYouButtonText?.trim()
+    const ctaUrl = form.settings.thankYouButtonUrl?.trim()
+
     return (
       <div
         className="flex min-h-screen flex-col items-center justify-center px-6"
@@ -200,6 +213,19 @@ export default function PublicForm() {
             {form.settings.thankYouMessage}
           </h1>
           {visited && <p className="mt-3 text-[14px] opacity-50">Response recorded</p>}
+          {ctaText && ctaUrl && (
+            <div className="mt-8">
+              <a
+                href={sanitizeUrl(ctaUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-full px-6 py-3 text-[14px] font-bold shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
+                style={{ background: theme.button, color: theme.buttonText }}
+              >
+                {ctaText}
+              </a>
+            </div>
+          )}
         </div>
         {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
       </div>
@@ -278,6 +304,15 @@ export default function PublicForm() {
       {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
     </div>
   )
+}
+
+function sanitizeUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/') || trimmed.startsWith('#')) {
+    return trimmed
+  }
+  return `https://${trimmed}`
 }
 
 function blockHeadingFontName(_font: string): string {
