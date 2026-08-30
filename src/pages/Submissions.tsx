@@ -40,6 +40,47 @@ export default function Submissions() {
   const ratingAvg = ratingBlock ? average(ratingVals(ratingBlock.id)) : null
   const npsAvg = npsBlock ? average(ratingVals(npsBlock.id)) : null
 
+  const exportToCSV = () => {
+    if (submissions.length === 0) return
+    const headers = ['Submission ID', 'Submitted At', ...questions.map(q => getQuestionLabel(q))]
+    const rows = submissions.map(s => [
+      s.id,
+      new Date(s.submittedAt).toISOString(),
+      ...questions.map(q => {
+        const val = s.answers[q.id]
+        if (val === undefined || val === null) return ''
+        if (Array.isArray(val)) return val.join('; ')
+        if (typeof val === 'object' && 'name' in val) {
+          return `${val.name} (${(val.size / 1024).toFixed(1)} KB)`
+        }
+        return String(val)
+      })
+    ])
+
+    const formatCell = (val: string) => {
+      const clean = val.replace(/"/g, '""')
+      if (clean.includes(',') || clean.includes('\n') || clean.includes('\r') || clean.includes('"')) {
+        return `"${clean}"`
+      }
+      return clean
+    }
+
+    const csvContent = [
+      headers.map(formatCell).join(','),
+      ...rows.map(r => r.map(formatCell).join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `folly_submissions_${form.id}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const stats = [
     { label: 'Total responses', value: String(submissions.length) },
     ...(ratingAvg ? [{ label: 'Avg rating', value: `★ ${ratingAvg}` }] : []),
@@ -62,6 +103,15 @@ export default function Submissions() {
             <span className="truncate text-[14px] font-semibold text-ink/90">{form.settings.title} — Responses</span>
           </div>
           <div className="flex items-center gap-2">
+            {submissions.length > 0 && (
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-1.5 rounded-full border border-ink/12 px-3.5 py-1.5 text-[13px] font-semibold text-ink/60 transition hover:border-ink/30 hover:text-ink"
+              >
+                <Icon name="download" className="h-4 w-4" />
+                Export to CSV
+              </button>
+            )}
             <Link
               to={`/r/${form.id}`}
               target="_blank"
