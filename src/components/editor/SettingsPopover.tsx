@@ -273,13 +273,17 @@ export function SettingsPopover({
                                 value={cond.op}
                                 onChange={(e) => {
                                   const rules = [...(block.showIf ?? [])]
-                                  rules[i] = { ...rules[i], op: e.target.value as 'equals' | 'notEquals' }
+                                  rules[i] = { ...rules[i], op: e.target.value as 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan' }
                                   updateBlock(formId, block.id, { showIf: rules })
                                 }}
                                 className="rounded-md border border-ink/15 px-1.5 py-1 text-[11px] outline-none focus:border-ink"
                               >
                                 <option value="equals">is</option>
                                 <option value="notEquals">is not</option>
+                                <option value="contains">contains</option>
+                                <option value="notContains">does not contain</option>
+                                <option value="greaterThan">greater than</option>
+                                <option value="lessThan">less than</option>
                               </select>
                               {labels.length > 0 ? (
                                 <select

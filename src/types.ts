@@ -25,7 +25,7 @@ export interface ChoiceOption {
 
 export interface LogicCondition {
   fieldId: string
-  op: 'equals' | 'notEquals'
+  op: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan'
   value: string
 }
 

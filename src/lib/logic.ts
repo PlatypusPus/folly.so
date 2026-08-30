@@ -29,14 +29,47 @@ export function canHaveLogic(block: Block): boolean {
   return isAnswerBlock(block.type) || block.type === 'image' || block.type === 'paragraph'
 }
 
-function answerMatches(answer: AnswerValue, value: string, op: 'equals' | 'notEquals'): boolean {
+function answerMatches(
+  answer: AnswerValue,
+  value: string,
+  op: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan',
+): boolean {
   if (Array.isArray(answer)) {
-    const hit = answer.some((a) => String(a).toLowerCase() === value.toLowerCase())
-    return op === 'equals' ? hit : !hit
+    const stringAnswers = answer.map((a) => String(a).toLowerCase())
+    const target = value.toLowerCase()
+
+    if (op === 'equals') return stringAnswers.includes(target)
+    if (op === 'notEquals') return !stringAnswers.includes(target)
+    if (op === 'contains') return stringAnswers.some((a) => a.includes(target))
+    if (op === 'notContains') return !stringAnswers.some((a) => a.includes(target))
+
+    const numVal = Number(value)
+    if (!isNaN(numVal)) {
+      const numericAnswers = answer.map((a) => Number(a)).filter((n) => !isNaN(n))
+      if (numericAnswers.length > 0) {
+        if (op === 'greaterThan') return numericAnswers.some((n) => n > numVal)
+        if (op === 'lessThan') return numericAnswers.some((n) => n < numVal)
+      }
+    }
+    return false
   }
+
   const normalized = answer === undefined || answer === null ? '' : String(answer)
-  const eq = normalized.toLowerCase() === value.toLowerCase()
-  return op === 'equals' ? eq : !eq
+  const normLower = normalized.toLowerCase()
+  const targetLower = value.toLowerCase()
+
+  if (op === 'equals') return normLower === targetLower
+  if (op === 'notEquals') return normLower !== targetLower
+  if (op === 'contains') return normLower.includes(targetLower)
+  if (op === 'notContains') return !normLower.includes(targetLower)
+
+  const answerNum = Number(normalized)
+  const targetNum = Number(value)
+  if (!isNaN(answerNum) && !isNaN(targetNum)) {
+    if (op === 'greaterThan') return answerNum > targetNum
+    if (op === 'lessThan') return answerNum < targetNum
+  }
+  return false
 }
 
 export function blockVisible(block: Block, answers: Record<string, AnswerValue>): boolean {
