@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { AnswerValue, Block, Form } from '../types'
 import { useForms } from '../store'
-import { blockVisible, formatWhen, getQuestionLabel, splitIntoPages } from '../lib/logic'
+import { blockVisible, formatWhen, getQuestionLabel, pipeText, splitIntoPages } from '../lib/logic'
 import { FieldControl, getDefaultValue, isFilled } from '../components/fields'
 import { RichText } from '../components/richtext'
 import { LogoMark, themeFont } from '../components/ui'
@@ -39,7 +39,7 @@ function BlockView({
     return (
       <div className="py-1">
         <RichText
-          text={block.text}
+          text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)}
         />
       </div>
     )
@@ -47,7 +47,7 @@ function BlockView({
   if (block.type === 'paragraph') {
     return (
       <p className="font-form-serif text-[18px] leading-relaxed">
-        <RichText text={block.text} />
+        <RichText text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)} />
       </p>
     )
   }
@@ -87,7 +87,7 @@ function BlockView({
         <span className="mr-1.5 inline-block text-[14px] font-normal text-ink/35 align-1">
           {form.settings.showProgress ? `${visibleIndex + 1}.` : ''}
         </span>
-        <RichText text={block.text || getQuestionLabel(block)} />
+        <RichText text={pipeText(block.text || getQuestionLabel(block), answers, form.blocks, form.settings.hiddenFields)} />
         {block.required && <span className="ml-1 text-brand-500">*</span>}
       </label>
       <div onClick={(e) => e.stopPropagation()}>
@@ -265,7 +265,7 @@ export default function PublicForm() {
               </svg>
             </span>
             <h1 className="font-form-serif mt-6 text-3xl font-semibold leading-tight sm:text-4xl" style={{ fontFamily: headerFont }}>
-              {form.settings.thankYouMessage}
+              {pipeText(form.settings.thankYouMessage, answers, form.blocks, form.settings.hiddenFields)}
             </h1>
             {visited && <p className="mt-3 text-[14px] opacity-50">Response recorded</p>}
             {ctaText && ctaUrl && (
@@ -321,11 +321,11 @@ export default function PublicForm() {
         )}
         <div className="mb-10">
           <div className="font-form-serif text-[38px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]" style={{ fontFamily: headerFont, color: dark ? '#fff' : '#1c1c1e' }}>
-            <RichText text={form.settings.title} />
+            <RichText text={pipeText(form.settings.title, answers, form.blocks, form.settings.hiddenFields)} />
           </div>
           {form.settings.description && (
             <p className="mt-3 text-[17px] leading-relaxed" style={{ opacity: 0.6 }}>
-              <RichText text={form.settings.description} />
+              <RichText text={pipeText(form.settings.description, answers, form.blocks, form.settings.hiddenFields)} />
             </p>
           )}
         </div>

@@ -133,3 +133,42 @@ export function formatWhen(ts: number): string {
   if (days < 7) return `${days}d ago`
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+export function pipeText(
+  text: string,
+  answers: Record<string, AnswerValue>,
+  blocks: Block[],
+  hiddenFields: string[] = []
+): string {
+  if (!text) return ''
+  return text.replace(/\{\{([^}]+)\}\}/g, (match, expression) => {
+    const expr = expression.trim()
+    if (expr.startsWith('@')) {
+      const labelToFind = expr.slice(1).trim()
+      const block = blocks.find((b) => getQuestionLabel(b).toLowerCase() === labelToFind.toLowerCase())
+      if (block) {
+        const val = answers[block.id]
+        if (val !== undefined && val !== null && val !== '') {
+          return formatAnswer(val)
+        }
+        return '...'
+      }
+    }
+    const blockById = blocks.find((b) => b.id === expr)
+    if (blockById) {
+      const val = answers[blockById.id]
+      if (val !== undefined && val !== null && val !== '') {
+        return formatAnswer(val)
+      }
+      return '...'
+    }
+    if (hiddenFields.includes(expr)) {
+      const val = answers[expr]
+      if (val !== undefined && val !== null && val !== '') {
+        return formatAnswer(val)
+      }
+      return '...'
+    }
+    return match
+  })
+}
