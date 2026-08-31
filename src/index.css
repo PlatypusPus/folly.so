@@ -113,3 +113,23 @@ input[type='range'] {
 .animate-fade {
   animation: fade-in 0.18s ease-out both;
 }
+
+/* Global focus and transitions styling for clean premium feel */
+a, button, input, textarea, select {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Remove default focus outlines to use cleaner ring highlights */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+}
+
+.shadow-pop {
+  box-shadow: 0 12px 30px -10px rgba(11, 15, 25, 0.08), 0 4px 12px -5px rgba(11, 15, 25, 0.03);
+}
+
+.shadow-card {
+  box-shadow: 0 8px 24px -8px rgba(11, 15, 25, 0.06);
+}

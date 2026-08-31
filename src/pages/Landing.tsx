@@ -1,6 +1,22 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Logo, LogoMark } from '../components/ui'
 import { useForms } from '../store'
+
+export interface PreviewTheme {
+  label: string
+  background: string
+  accent: string
+  buttonText: string
+  font: 'system' | 'serif' | 'playful'
+  darkMode: boolean
+}
+
+export const THEME_PRESETS: PreviewTheme[] = [
+  { label: 'Clean', background: '#ffffff', accent: '#0b0f19', buttonText: '#ffffff', font: 'system', darkMode: false },
+  { label: 'Midnight', background: '#0b0f19', accent: '#ff5470', buttonText: '#ffffff', font: 'system', darkMode: true },
+  { label: 'Paper', background: '#fdf6ef', accent: '#1a7f5a', buttonText: '#ffffff', font: 'serif', darkMode: false },
+]
 
 const NAV = [
   { label: 'Pricing', href: '#' },
@@ -10,6 +26,36 @@ const NAV = [
 ]
 
 const COMPANIES = ['Acme', 'Notionette', 'Kite', 'Rakutenly', 'Glover', 'Brush&Co']
+
+function ScrollReveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.08 }
+    )
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out transform ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+      } ${className}`}
+    >
+      {children}
+    </div>
+  )
+}
 
 const FAQ = [
   {
@@ -30,10 +76,19 @@ const FAQ = [
   },
 ]
 
-function Face({ emoji, className }: { emoji: string; className?: string }) {
+function Face({
+  emoji,
+  className,
+  style,
+}: {
+  emoji: string
+  className?: string
+  style?: React.CSSProperties
+}) {
   return (
     <span
-      className={`pointer-events-none absolute select-none text-5xl drop-shadow-sm sm:text-6xl ${className ?? ''}`}
+      className={`pointer-events-none absolute select-none text-5xl drop-shadow-md sm:text-6xl transition-transform duration-300 ease-out ${className ?? ''}`}
+      style={style}
       aria-hidden
     >
       {emoji}
@@ -43,19 +98,43 @@ function Face({ emoji, className }: { emoji: string; className?: string }) {
 
 function Hero() {
   const go = () => {
-    useForms
-      .getState()
-      .createForm?.()
+    useForms.getState().createForm()
     window.location.hash = '#/forms'
   }
+
+  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 })
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const { clientX, clientY } = e
+    const x = (clientX - window.innerWidth / 2) / 25
+    const y = (clientY - window.innerHeight / 2) / 25
+    setMouseOffset({ x, y })
+  }
+
   return (
-    <section className="relative overflow-hidden">
-      <div className="dot-bg absolute inset-0 -z-10 opacity-60" />
+    <section className="relative overflow-hidden" onMouseMove={handleMouseMove}>
+      <div className="dot-bg absolute inset-0 -z-10 opacity-60 animate-fade" />
       <div className="mx-auto max-w-5xl px-6 pt-16 pb-20 text-center sm:pt-24 sm:pb-28">
-        <Face emoji="😀" className="left-[8%] top-24 hidden rotate-[-8deg] md:block" />
-        <Face emoji="🤩" className="right-[10%] top-40 hidden rotate-[10deg] md:block" />
-        <Face emoji="😍" className="left-[16%] top-[70%] hidden rotate-6 md:block" />
-        <Face emoji="🥳" className="right-[14%] top-[64%] hidden -rotate-6 md:block" />
+        <Face
+          emoji="😀"
+          className="left-[8%] top-24 hidden md:block"
+          style={{ transform: `translate(${mouseOffset.x * -0.6}px, ${mouseOffset.y * -0.6}px) rotate(-8deg)` }}
+        />
+        <Face
+          emoji="🤩"
+          className="right-[10%] top-40 hidden md:block"
+          style={{ transform: `translate(${mouseOffset.x * 0.8}px, ${mouseOffset.y * 0.8}px) rotate(10deg)` }}
+        />
+        <Face
+          emoji="😍"
+          className="left-[16%] top-[70%] hidden md:block"
+          style={{ transform: `translate(${mouseOffset.x * -0.4}px, ${mouseOffset.y * -0.4}px) rotate(6deg)` }}
+        />
+        <Face
+          emoji="🥳"
+          className="right-[14%] top-[64%] hidden md:block"
+          style={{ transform: `translate(${mouseOffset.x * 0.5}px, ${mouseOffset.y * 0.5}px) rotate(-6deg)` }}
+        />
 
         <a
           href="#/"
@@ -109,59 +188,165 @@ function Hero() {
   )
 }
 
-function MiniEditor() {
+function MiniEditor({ theme }: { theme: PreviewTheme }) {
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+  const [searchText, setSearchText] = useState('')
+
+  const fontStyle =
+    theme.font === 'serif'
+      ? "'Fraunces', Georgia, serif"
+      : theme.font === 'playful'
+      ? "'Space Grotesk', monospace"
+      : "'Inter', sans-serif"
+
+  const textCol = theme.darkMode ? '#f3f4f6' : '#0b0f19'
+  const subTextCol = theme.darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(11,15,25,0.45)'
+  const borderCol = theme.darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(11,15,25,0.08)'
+
+  if (submitted) {
+    return (
+      <div
+        className="mx-auto w-full max-w-lg overflow-hidden rounded-2xl border shadow-pop transition-all duration-300"
+        style={{ background: theme.background, color: textCol, borderColor: borderCol, fontFamily: fontStyle }}
+      >
+        <div className="flex items-center gap-2 border-b px-5 py-3.5" style={{ borderColor: borderCol }}>
+          <span className="h-2.5 w-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-brand-300" />
+          <span className="ml-3 rounded-md bg-black/[0.04] dark:bg-white/[0.04] px-2 py-0.5 text-xs font-semibold" style={{ color: subTextCol }}>
+            Live preview
+          </span>
+        </div>
+        <div className="flex flex-col items-center justify-center px-6 py-12 text-center animate-pop">
+          <span
+            className="flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 shadow-md"
+            style={{ background: theme.accent, color: theme.buttonText }}
+          >
+            <svg viewBox="0 0 24 24" className="h-6 w-6">
+              <path d="m5 13 4 4L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h3 className="mt-5 text-xl font-bold leading-tight">Thank you!</h3>
+          <p className="mt-1.5 text-[14px]" style={{ color: subTextCol }}>
+            Response recorded in simulator
+          </p>
+          <button
+            onClick={() => {
+              setSubmitted(false)
+              setSelectedOption(null)
+              setSearchText('')
+            }}
+            className="mt-6 text-[12px] font-bold transition hover:opacity-85"
+            style={{ color: theme.accent }}
+          >
+            ← Fill again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-pop">
-      <div className="flex items-center gap-2 border-b border-ink/5 px-5 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-ink/10" />
-        <span className="h-2.5 w-2.5 rounded-full bg-ink/10" />
+    <div
+      className="mx-auto w-full max-w-lg overflow-hidden rounded-2xl border shadow-pop transition-all duration-300"
+      style={{ background: theme.background, color: textCol, borderColor: borderCol, fontFamily: fontStyle }}
+    >
+      <div className="flex items-center gap-2 border-b px-5 py-3.5" style={{ borderColor: borderCol }}>
+        <span className="h-2.5 w-2.5 rounded-full bg-black/10 dark:bg-white/10" />
+        <span className="h-2.5 w-2.5 rounded-full bg-black/10 dark:bg-white/10" />
         <span className="h-2.5 w-2.5 rounded-full bg-brand-300" />
-        <span className="ml-3 rounded-md bg-ink/[0.04] px-2 py-0.5 text-xs font-medium text-ink/40">
-          Untitled form
+        <span className="ml-3 rounded-md bg-black/[0.04] dark:bg-white/[0.04] px-2 py-0.5 text-xs font-semibold" style={{ color: subTextCol }}>
+          Live preview
         </span>
       </div>
-      <div className="space-y-3 px-6 py-6">
-        <div className="font-form-serif text-2xl font-semibold leading-snug text-ink">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          setSubmitted(true)
+        }}
+        className="space-y-4 px-6 py-6"
+      >
+        <div className="text-[20px] font-bold leading-snug">
           How did you hear about us?
         </div>
         <div className="space-y-2">
-          {['Word of mouth', 'Google search', 'Social media', 'Read a blog post'].map((o, i) => (
-            <div key={o} className="flex items-center gap-3">
-              <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
-                  i === 0 ? 'border-ink text-ink' : 'border-ink/20'
-                }`}
+          {['Word of mouth', 'Google search', 'Social media', 'Read a blog post'].map((o) => {
+            const isSelected = selectedOption === o
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setSelectedOption(o)}
+                className="flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[14px] transition-all hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+                style={{
+                  borderColor: isSelected ? theme.accent : borderCol,
+                  background: isSelected ? `${theme.accent}12` : 'transparent',
+                }}
               >
-                {i === 0 && <span className="h-2 w-2 rounded-full bg-ink" />}
-              </span>
-              <span className="text-[15px] text-ink/75">{o}</span>
-            </div>
-          ))}
+                <span
+                  className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border transition"
+                  style={{ borderColor: isSelected ? theme.accent : borderCol }}
+                >
+                  {isSelected && <span className="h-2 w-2 rounded-full" style={{ background: theme.accent }} />}
+                </span>
+                <span className="font-semibold text-[14px]" style={{ color: isSelected ? textCol : subTextCol }}>
+                  {o}
+                </span>
+              </button>
+            )
+          })}
         </div>
-        <div className="pt-2 pb-0.5 text-sm italic text-ink/35">“Type / for any block”</div>
-        <div className="flex justify-end">
-          <span className="rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white">Submit</span>
+
+        {selectedOption === 'Google search' && (
+          <div className="space-y-1.5 pt-1.5 animate-pop">
+            <label className="block text-[13px] font-bold" style={{ color: subTextCol }}>
+              What search term did you use?
+            </label>
+            <input
+              type="text"
+              required
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="e.g. clean form builder"
+              className="w-full rounded-xl border bg-transparent px-3.5 py-2 text-[14px] outline-none transition"
+              style={{ borderColor: borderCol, color: textCol }}
+            />
+          </div>
+        )}
+
+        <div className="pt-2 flex items-center justify-between">
+          <span className="text-[12px] italic opacity-40">“Type / for any block”</span>
+          <button
+            type="submit"
+            className="rounded-full px-5 py-2 text-[13px] font-bold shadow-md transition hover:-translate-y-0.5"
+            style={{ background: theme.accent, color: theme.buttonText }}
+          >
+            Submit
+          </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
 
-function Features() {
+function Features({ theme }: { theme: PreviewTheme }) {
   return (
     <section className="mx-auto max-w-6xl px-6 py-20">
-      <div className="mx-auto mb-14 max-w-2xl text-center">
-        <p className="mb-3 text-sm font-bold uppercase tracking-widest text-brand-500">A form builder like no other</p>
-        <h2 className="text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
-          Fill it out the way you <span className="highlight italic">think</span>
-        </h2>
-        <p className="mt-4 text-lg text-ink/55">
-          Folly makes it simple for anyone to build free online forms. No code needed — just type your
-          questions like you would in a doc, and hit <code className="rounded bg-ink/5 px-1.5 py-0.5 font-mono text-sm">/</code> to insert any question type.
-        </p>
-      </div>
+      <ScrollReveal>
+        <div className="mx-auto mb-14 max-w-2xl text-center">
+          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-brand-500">A form builder like no other</p>
+          <h2 className="text-4xl font-extrabold tracking-tight text-ink sm:text-5xl">
+            Fill it out the way you <span className="highlight italic">think</span>
+          </h2>
+          <p className="mt-4 text-lg text-ink/55">
+            Folly makes it simple for anyone to build free online forms. No code needed — just type your
+            questions like you would in a doc, and hit <code className="rounded bg-ink/5 px-1.5 py-0.5 font-mono text-sm">/</code> to insert any question type.
+          </p>
+        </div>
+      </ScrollReveal>
 
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+      <ScrollReveal className="grid gap-8 lg:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col justify-center rounded-3xl border border-ink/10 bg-ink/[0.02] p-8">
           <h3 className="text-3xl font-bold tracking-tight text-ink">Nothing to learn.</h3>
           <p className="mt-2 max-w-md text-[15px] leading-relaxed text-ink/55">
@@ -176,8 +361,8 @@ function Features() {
             ))}
           </div>
         </div>
-        <MiniEditor />
-      </div>
+        <MiniEditor theme={theme} />
+      </ScrollReveal>
     </section>
   )
 }
@@ -289,31 +474,45 @@ function Smart() {
   )
 }
 
-function Themes() {
+function Themes({
+  activeTheme,
+  onChange,
+}: {
+  activeTheme: PreviewTheme
+  onChange: (t: PreviewTheme) => void
+}) {
   return (
     <section className="mx-auto max-w-6xl px-6 py-20">
-      <div className="grid items-center gap-14 lg:grid-cols-2">
+      <ScrollReveal className="grid items-center gap-14 lg:grid-cols-2">
         <div className="order-2 lg:order-1">
           <div className="grid grid-cols-3 gap-4">
-            {[
-              { bg: '#ffffff', accent: '#0b0f19', label: 'Clean' },
-              { bg: '#0b0f19', accent: '#ff5470', label: 'Midnight' },
-              { bg: '#fdf6ef', accent: '#1a7f5a', label: 'Paper' },
-            ].map((t) => (
-              <div key={t.label} className="overflow-hidden rounded-2xl border border-ink/10 shadow-card">
-                <div className="p-3" style={{ background: t.bg }}>
-                  <div className="h-2 w-2/3 rounded-full" style={{ background: t.accent }} />
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-black/10" />
-                  <div className="mt-2 h-1.5 w-4/5 rounded-full bg-black/10" />
-                  <div className="mt-3 flex justify-end">
-                    <span className="h-5 w-9 rounded-full text-[8px] font-bold leading-5 text-center" style={{ background: t.accent, color: '#fff' }}>
-                      OK
-                    </span>
+            {THEME_PRESETS.map((t) => {
+              const isSelected = activeTheme.label === t.label
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  onClick={() => onChange(t)}
+                  className={`overflow-hidden text-left rounded-2xl border transition-all duration-300 ${
+                    isSelected ? 'border-ink ring-4 ring-ink/5 shadow-md -translate-y-1' : 'border-ink/10 hover:border-ink/20 hover:scale-102'
+                  }`}
+                >
+                  <div className="p-4" style={{ background: t.background }}>
+                    <div className="h-2 w-2/3 rounded-full" style={{ background: t.accent }} />
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-black/10 dark:bg-white/10" />
+                    <div className="mt-2 h-1.5 w-4/5 rounded-full bg-black/10 dark:bg-white/10" />
+                    <div className="mt-3 flex justify-end">
+                      <span className="h-5 w-9 rounded-full text-[8px] font-bold leading-5 text-center" style={{ background: t.accent, color: t.buttonText }}>
+                        OK
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white px-3 py-2 text-[12px] font-semibold text-ink/60">{t.label}</div>
-              </div>
-            ))}
+                  <div className="bg-white dark:bg-zinc-900 border-t border-ink/5 px-4 py-2.5 text-[12px] font-bold text-ink/70">
+                    {t.label} {isSelected && '✓'}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
         <div className="order-1 lg:order-2">
@@ -323,10 +522,10 @@ function Themes() {
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-ink/55">
             Choose a background, a button color, and a typeface. Add a logo, cover image or embedded video.
-            Column layouts, custom fonts and even full custom CSS — all without touching code.
+            Column layouts, custom fonts and even full custom CSS — all without touching code. Click presets here to test themes live!
           </p>
         </div>
-      </div>
+      </ScrollReveal>
     </section>
   )
 }
@@ -457,10 +656,13 @@ function Footer() {
 }
 
 export default function Landing() {
+  const [activeTheme, setActiveTheme] = useState<PreviewTheme>(THEME_PRESETS[0])
+
   const goCreate = () => {
-    useForms.getState().createForm
+    useForms.getState().createForm()
     window.location.hash = '#/forms'
   }
+
   return (
     <div className="min-h-full bg-white">
       <header className="sticky top-0 z-40 border-b border-ink/[0.06] bg-white/80 backdrop-blur-md">
@@ -488,13 +690,30 @@ export default function Landing() {
       </header>
 
       <Hero />
-      <Features />
-      <InputTypes />
-      <Smart />
-      <Themes />
-      <HowItWorks />
-      <FAQSection />
-      <CTA />
+      <Features theme={activeTheme} />
+      
+      <ScrollReveal>
+        <InputTypes />
+      </ScrollReveal>
+      
+      <ScrollReveal>
+        <Smart />
+      </ScrollReveal>
+      
+      <Themes activeTheme={activeTheme} onChange={setActiveTheme} />
+      
+      <ScrollReveal>
+        <HowItWorks />
+      </ScrollReveal>
+      
+      <ScrollReveal>
+        <FAQSection />
+      </ScrollReveal>
+      
+      <ScrollReveal>
+        <CTA />
+      </ScrollReveal>
+      
       <Footer />
     </div>
   )
