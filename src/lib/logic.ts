@@ -11,13 +11,19 @@ const ANSWER_TYPES: BlockType[] = [
   'number',
   'email',
   'phone',
+  'link',
   'date',
+  'time',
   'rating',
+  'csat',
   'nps',
   'linear',
   'multipleChoice',
   'checkbox',
   'dropdown',
+  'multiSelect',
+  'ranking',
+  'matrix',
   'fileUpload',
 ]
 
@@ -29,13 +35,21 @@ export function canHaveLogic(block: Block): boolean {
   return isAnswerBlock(block.type) || block.type === 'image' || block.type === 'paragraph'
 }
 
+function toList(answer: AnswerValue): string[] {
+  if (answer === null || answer === undefined) return []
+  if (Array.isArray(answer)) return answer.map((a) => String(a))
+  if (typeof answer === 'object' && 'name' in answer) return [String(answer.name)]
+  if (typeof answer === 'object') return Object.values(answer).map((a) => String(a))
+  return [String(answer)]
+}
+
 function answerMatches(
   answer: AnswerValue,
   value: string,
   op: 'equals' | 'notEquals' | 'contains' | 'notContains' | 'greaterThan' | 'lessThan',
 ): boolean {
-  if (Array.isArray(answer)) {
-    const stringAnswers = answer.map((a) => String(a).toLowerCase())
+  if (Array.isArray(answer) || (typeof answer === 'object' && answer !== null && !('name' in answer))) {
+    const stringAnswers = toList(answer).map((a) => a.toLowerCase())
     const target = value.toLowerCase()
 
     if (op === 'equals') return stringAnswers.includes(target)
@@ -45,7 +59,9 @@ function answerMatches(
 
     const numVal = Number(value)
     if (!isNaN(numVal)) {
-      const numericAnswers = answer.map((a) => Number(a)).filter((n) => !isNaN(n))
+      const numericAnswers = toList(answer)
+        .map((a) => Number(a))
+        .filter((n) => !isNaN(n))
       if (numericAnswers.length > 0) {
         if (op === 'greaterThan') return numericAnswers.some((n) => n > numVal)
         if (op === 'lessThan') return numericAnswers.some((n) => n < numVal)
@@ -108,6 +124,7 @@ export function questionOptions(form: Form): Array<{ id: string; label: string }
 }
 
 export function answerOptionsFor(block: Block): string[] {
+  if (block.type === 'matrix') return (block.matrixColumns ?? []).filter((c) => c.trim())
   return (block.options ?? []).filter((o) => o.label.trim()).map((o) => o.label.trim())
 }
 
@@ -116,6 +133,11 @@ export function formatAnswer(value: AnswerValue): string {
   if (value && typeof value === 'object' && 'name' in value) {
     const f = value as { name: string; size: number }
     return `${f.name} (${(f.size / 1024).toFixed(1)} KB)`
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([row, col]) => `${row}: ${col}`)
+      .join(', ')
   }
   if (value === null || value === undefined || value === '') return '—'
   return String(value)

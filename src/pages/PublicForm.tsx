@@ -3,9 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import type { AnswerValue, Block, Form } from '../types'
 import { useForms } from '../store'
 import { blockVisible, formatWhen, getQuestionLabel, pipeText, splitIntoPages } from '../lib/logic'
+import { rowLayout } from '../lib/layout'
+import { embedInfo } from '../lib/embed'
 import { FieldControl, getDefaultValue, isFilled } from '../components/fields'
 import { RichText } from '../components/richtext'
 import { LogoMark, themeFont } from '../components/ui'
+
+const NON_ANSWER_TYPES = ['heading', 'heading2', 'heading3', 'label', 'paragraph', 'image', 'divider', 'embed', 'pageBreak', 'thankYou']
 
 function notFound() {
   return (
@@ -35,12 +39,35 @@ function BlockView({
   errors: Record<string, string>
   onChange: (blockId: string, v: AnswerValue) => void
 }) {
-  if (block.type === 'heading') {
+  if (block.type === 'heading' || block.type === 'heading2' || block.type === 'heading3' || block.type === 'label') {
+    const cls =
+      block.type === 'label'
+        ? 'text-[13px] font-bold uppercase tracking-wide opacity-60'
+        : block.type === 'heading3'
+          ? 'font-form-serif text-[19px] font-semibold leading-snug'
+          : block.type === 'heading2'
+            ? 'font-form-serif text-[24px] font-semibold leading-snug'
+            : ''
     return (
-      <div className="py-1">
+      <div className={`py-1 ${cls}`}>
         <RichText
           text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)}
         />
+      </div>
+    )
+  }
+  if (block.type === 'divider') {
+    return <hr className="my-2 h-px w-full border-0 bg-current opacity-15" />
+  }
+  if (block.type === 'embed') {
+    const info = embedInfo(block.embedUrl)
+    if (!info) return null
+    return (
+      <div className="py-1">
+        <div className="aspect-video w-full max-w-xl overflow-hidden rounded-2xl border border-black/10">
+          <iframe src={info.src} title={block.text || info.provider} className="h-full w-full" allowFullScreen />
+        </div>
+        {block.text && <p className="mt-2 text-[13px] opacity-60">{block.text}</p>}
       </div>
     )
   }
@@ -74,7 +101,7 @@ function BlockView({
   const visibleIndex = (() => {
     let n = -1
     for (const b of form.blocks) {
-      const isQ = !['heading', 'paragraph', 'image', 'pageBreak', 'thankYou'].includes(b.type)
+      const isQ = !NON_ANSWER_TYPES.includes(b.type)
       if (!isQ || !blockVisible(b, answers)) continue
       n += 1
       if (b.id === block.id) return n
@@ -82,7 +109,7 @@ function BlockView({
     return n
   })()
   return (
-    <div className="py-1">
+    <div className="tally-question py-1">
       <label className={`mb-2.5 block font-medium leading-snug ${questionStyle}`}>
         <span className="mr-1.5 inline-block text-[14px] font-normal text-ink/35 align-1">
           {form.settings.showProgress ? `${visibleIndex + 1}.` : ''}
@@ -156,6 +183,18 @@ export default function PublicForm() {
     setSubmitted(false)
   }, [formId, form?.settings.hiddenFields])
 
+  useEffect(() => {
+    const css = form?.settings.customCss?.trim()
+    if (!css) return
+    const el = document.createElement('style')
+    el.setAttribute('data-folly-custom-css', '')
+    el.textContent = css
+    document.head.appendChild(el)
+    return () => {
+      document.head.removeChild(el)
+    }
+  }, [form?.settings.customCss])
+
   if (!form) return notFound()
 
   const theme = form.settings.theme
@@ -197,7 +236,7 @@ export default function PublicForm() {
     }
     const collected: Record<string, AnswerValue> = {}
     for (const b of form.blocks) {
-      if (b.type === 'heading' || b.type === 'paragraph' || b.type === 'image' || b.type === 'pageBreak' || b.type === 'thankYou') continue
+      if (NON_ANSWER_TYPES.includes(b.type)) continue
       if (b.type !== 'fileUpload') {
         const v = answers[b.id]
         if (Array.isArray(v) && v.length === 0) collected[b.id] = null
@@ -236,7 +275,7 @@ export default function PublicForm() {
 
     return (
       <div
-        className="flex min-h-screen flex-col"
+        className="tally-app flex min-h-screen flex-col"
         style={{ background: theme.background, fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}
       >
         {form.settings.coverImageUrl && (
@@ -291,7 +330,7 @@ export default function PublicForm() {
   const progress = (pageCount > 1 ? (safePage + 1) / pageCount : 1) * 100
 
   return (
-    <div ref={topRef} className="flex min-h-screen flex-col" style={{ background: theme.background, fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}>
+    <div ref={topRef} className="tally-app flex min-h-screen flex-col" style={{ background: theme.background, fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}>
       <div className="h-1 w-full" style={{ background: 'transparent' }}>
         <div className="h-full transition-all duration-300" style={{ width: `${progress}%`, background: theme.button }} />
       </div>
@@ -319,7 +358,7 @@ export default function PublicForm() {
             <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
           </div>
         )}
-        <div className="mb-10">
+        <div className="tally-form-title mb-10">
           <div className="font-form-serif text-[38px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]" style={{ fontFamily: headerFont, color: dark ? '#fff' : '#1c1c1e' }}>
             <RichText text={pipeText(form.settings.title, answers, form.blocks, form.settings.hiddenFields)} />
           </div>
@@ -336,18 +375,28 @@ export default function PublicForm() {
             if (safePage < pageCount - 1) goNext()
             else submit()
           }}
-          className="space-y-8"
+          className="tally-form space-y-8"
         >
-          {visibleHere.map((block) => (
-            <BlockView
-              key={block.id}
-              form={form}
-              block={block}
-              answers={answers}
-              errors={errors}
-              onChange={changeAnswer}
-            />
-          ))}
+          {rowLayout(visibleHere).map((row) => {
+            const n = row.blocks.length
+            const rendered = row.blocks.map((block) => (
+              <div key={block.id} className="tally-block">
+                <BlockView
+                  form={form}
+                  block={block}
+                  answers={answers}
+                  errors={errors}
+                  onChange={changeAnswer}
+                />
+              </div>
+            ))
+            if (n === 1) return rendered[0]
+            return (
+              <div key={row.key} className="col-split gap-x-8 gap-y-7" style={{ ['--cols' as never]: n }}>
+                {rendered}
+              </div>
+            )
+          })}
 
           <div className="flex items-center justify-between pt-2">
             {safePage > 0 ? (
@@ -364,7 +413,7 @@ export default function PublicForm() {
             )}
             <button
               type="submit"
-              className="rounded-full px-8 py-3.5 text-[15px] font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
+              className="tally-submit-button rounded-full px-8 py-3.5 text-[15px] font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
               style={{ background: accent, color: theme.buttonText }}
             >
               {safePage < pageCount - 1 ? 'Next' : 'Submit'}
@@ -394,7 +443,7 @@ function blockHeadingFontName(_font: string): string {
 function PoweredBy({ dark, font }: { dark: boolean; font: string }) {
   return (
     <footer
-      className="flex w-full items-center justify-center gap-2 py-8 text-[13px]"
+      className="tally-footer flex w-full items-center justify-center gap-2 py-8 text-[13px]"
       style={{ opacity: 0.45, fontFamily: font }}
     >
       <LogoMark className="h-4 w-4" />

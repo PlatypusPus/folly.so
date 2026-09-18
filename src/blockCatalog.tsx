@@ -21,6 +21,40 @@ export const icons: Record<string, ReactNode> = {
       <path d="M6 12h12" />
     </Svg>
   ),
+  heading2: (
+    <Svg>
+      <path d="M6 4v16" />
+      <path d="M18 4v16" />
+      <path d="M6 12h8" />
+    </Svg>
+  ),
+  heading3: (
+    <Svg>
+      <path d="M6 4v16" />
+      <path d="M18 4v16" />
+      <path d="M6 12h6" />
+    </Svg>
+  ),
+  label: (
+    <Svg>
+      <path d="M5 8h14" />
+      <path d="M5 12h14" />
+      <path d="M5 16h8" />
+    </Svg>
+  ),
+  divider: (
+    <Svg>
+      <path d="M4 12h16" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+    </Svg>
+  ),
+  embed: (
+    <Svg>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="m9 10-2 2 2 2" />
+      <path d="m15 10 2 2-2 2" />
+    </Svg>
+  ),
   paragraph: (
     <Svg>
       <path d="M7 5h10" />
@@ -40,6 +74,28 @@ export const icons: Record<string, ReactNode> = {
       <path d="M7 5h10" />
       <path d="M7 9h10" />
       <path d="M7 13h10" />
+    </Svg>
+  ),
+  multiSelect: (
+    <Svg>
+      <rect x="4" y="6" width="16" height="12" rx="3" />
+      <path d="M8.5 11.5 10 13l2.5-2.5" />
+      <path d="M14 13h3" />
+    </Svg>
+  ),
+  ranking: (
+    <Svg>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h10" />
+      <path d="M17 15.5l2 2 2.5-3.5" />
+    </Svg>
+  ),
+  matrix: (
+    <Svg>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M12 4v16" />
+      <path d="M4 12h16" />
     </Svg>
   ),
   number: (
@@ -67,6 +123,19 @@ export const icons: Record<string, ReactNode> = {
       <path d="M4 10h16" />
       <path d="M8 3v4" />
       <path d="M16 3v4" />
+    </Svg>
+  ),
+  time: (
+    <Svg>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l3 2" />
+    </Svg>
+  ),
+  csat: (
+    <Svg>
+      <path d="M4 18a8 8 0 0 1 16 0" />
+      <circle cx="8.5" cy="10" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="10" r="1" fill="currentColor" stroke="none" />
     </Svg>
   ),
   rating: (
@@ -253,27 +322,38 @@ export interface BlockDef {
 }
 
 export const BLOCKS: BlockDef[] = [
-  { type: 'heading', label: 'Heading', hint: 'Large heading text', group: 'Text', shortcut: '# ' },
-  { type: 'paragraph', label: 'Text', hint: 'Paragraph of text', group: 'Text', shortcut: 'txt' },
-  { type: 'image', label: 'Image', hint: 'Embed an image', group: 'Text' },
-  { type: 'shortText', label: 'Short text', hint: 'One line of text', group: 'Input', shortcut: 'short' },
-  { type: 'longText', label: 'Long text', hint: 'Multiple lines of text', group: 'Input', shortcut: 'long' },
-  { type: 'email', label: 'Email', hint: 'Email address', group: 'Input', shortcut: 'email' },
-  { type: 'number', label: 'Number', hint: 'Numeric input', group: 'Input', shortcut: 'number' },
-  { type: 'phone', label: 'Phone', hint: 'Phone number', group: 'Input', shortcut: 'phone' },
-  { type: 'date', label: 'Date', hint: 'Date picker', group: 'Input', shortcut: 'date' },
-  { type: 'fileUpload', label: 'File upload', hint: 'Collect files from respondents', group: 'Input', shortcut: 'file' },
-  { type: 'multipleChoice', label: 'Multiple choice', hint: 'Pick from a list of options', group: 'Choice', shortcut: 'multiple' },
-  { type: 'checkbox', label: 'Checkbox', hint: 'Select multiple options', group: 'Choice', shortcut: 'checkbox' },
-  { type: 'dropdown', label: 'Dropdown', hint: 'Choose from a dropdown list', group: 'Choice', shortcut: 'dropdown' },
-  { type: 'rating', label: 'Rating', hint: 'Rate with icons', group: 'Scale', shortcut: 'rating' },
-  { type: 'linear', label: 'Linear scale', hint: 'Rate on a numeric scale', group: 'Scale', shortcut: 'linear' },
-  { type: 'nps', label: 'NPS score', hint: 'Net promoter score (0–10)', group: 'Scale', shortcut: 'nps' },
-  { type: 'pageBreak', label: 'Page break', hint: 'Split the form into pages', group: 'Layout', shortcut: 'page' },
-  { type: 'thankYou', label: 'Thank you page', hint: 'Custom completion message', group: 'Layout', shortcut: 'thank' },
+  { type: 'heading', label: 'Heading', hint: 'Large heading text', group: 'Layout', shortcut: '# ' },
+  { type: 'heading2', label: 'Heading 2', hint: 'Medium heading text', group: 'Layout', shortcut: '## ' },
+  { type: 'heading3', label: 'Heading 3', hint: 'Small heading text', group: 'Layout', shortcut: '### ' },
+  { type: 'label', label: 'Label', hint: 'Small bold label text', group: 'Layout', shortcut: 'label' },
+  { type: 'paragraph', label: 'Text', hint: 'Paragraph of text', group: 'Layout', shortcut: 'txt' },
+  { type: 'divider', label: 'Divider', hint: 'Horizontal divider line', group: 'Layout', shortcut: 'divider' },
+  { type: 'image', label: 'Image / GIF', hint: 'Embed an image', group: 'Layout', shortcut: 'image' },
+  { type: 'embed', label: 'YouTube, Vimeo or Maps', hint: 'Embed video, audio or maps', group: 'Layout', shortcut: 'embed' },
+  { type: 'shortText', label: 'Short text', hint: 'One line of text', group: 'Inputs', shortcut: 'short' },
+  { type: 'longText', label: 'Long text', hint: 'Multiple lines of text', group: 'Inputs', shortcut: 'long' },
+  { type: 'number', label: 'Number', hint: 'Numeric input', group: 'Inputs', shortcut: 'number' },
+  { type: 'email', label: 'Email', hint: 'Email address', group: 'Inputs', shortcut: 'email' },
+  { type: 'phone', label: 'Phone', hint: 'Phone number', group: 'Inputs', shortcut: 'phone' },
+  { type: 'link', label: 'Link', hint: 'Website / URL input', group: 'Inputs', shortcut: 'link' },
+  { type: 'date', label: 'Date', hint: 'Date picker', group: 'Inputs', shortcut: 'date' },
+  { type: 'time', label: 'Time', hint: 'Time picker', group: 'Inputs', shortcut: 'time' },
+  { type: 'fileUpload', label: 'File upload', hint: 'Collect files from respondents', group: 'Inputs', shortcut: 'file' },
+  { type: 'multipleChoice', label: 'Multiple choice', hint: 'Pick one option from a list', group: 'Questions', shortcut: 'multiple [a]' },
+  { type: 'checkbox', label: 'Checkbox', hint: 'Pick multiple options', group: 'Questions', shortcut: 'checkbox []' },
+  { type: 'dropdown', label: 'Dropdown', hint: 'Choose one option from a dropdown', group: 'Questions', shortcut: 'dropdown [v]' },
+  { type: 'multiSelect', label: 'Multi-select', hint: 'Pick multiple options from a searchable dropdown', group: 'Questions', shortcut: 'multi-select' },
+  { type: 'ranking', label: 'Ranking', hint: 'Rank options in order of preference', group: 'Questions', shortcut: 'ranking' },
+  { type: 'matrix', label: 'Matrix', hint: 'Grid of rows × columns (Likert scale)', group: 'Questions', shortcut: 'matrix' },
+  { type: 'rating', label: 'Rating', hint: 'Rate with icons (1–10)', group: 'Rating & Scale', shortcut: 'rating' },
+  { type: 'csat', label: 'CSAT', hint: 'Customer satisfaction scale (1–5)', group: 'Rating & Scale', shortcut: 'csat' },
+  { type: 'linear', label: 'Linear scale', hint: 'Rate on a numeric scale', group: 'Rating & Scale', shortcut: 'linear' },
+  { type: 'nps', label: 'NPS score', hint: 'Net promoter score (0–10)', group: 'Rating & Scale', shortcut: 'nps' },
+  { type: 'pageBreak', label: 'Page break', hint: 'Split the form into pages', group: 'Page', shortcut: 'page' },
+  { type: 'thankYou', label: 'Thank you page', hint: 'Custom completion message', group: 'Page', shortcut: 'thank' },
 ]
 
-export const GROUPS = ['Text', 'Input', 'Choice', 'Scale', 'Layout']
+export const GROUPS = ['Questions', 'Inputs', 'Rating & Scale', 'Layout', 'Page']
 
 export function searchBlocks(query: string): BlockDef[] {
   const q = query.trim().toLowerCase()

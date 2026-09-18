@@ -88,6 +88,21 @@ input[type='range'] {
   font-weight: 400;
 }
 
+/* Tally-style column rows */
+.col-split {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  align-items: start;
+}
+.col-split > * {
+  min-width: 0;
+}
+@media (max-width: 639px) {
+  .col-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;

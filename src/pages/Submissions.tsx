@@ -51,8 +51,14 @@ export default function Submissions() {
         const val = s.answers[q.id]
         if (val === undefined || val === null) return ''
         if (Array.isArray(val)) return val.join('; ')
-        if (typeof val === 'object' && 'name' in val) {
-          return `${val.name} (${(val.size / 1024).toFixed(1)} KB)`
+        if (typeof val === 'object' && 'name' in val && 'size' in val) {
+          const f = val as { name: string; size: number }
+          return `${f.name} (${(f.size / 1024).toFixed(1)} KB)`
+        }
+        if (typeof val === 'object') {
+          return Object.entries(val)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('; ')
         }
         return String(val)
       }),

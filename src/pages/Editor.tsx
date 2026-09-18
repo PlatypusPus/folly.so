@@ -7,6 +7,8 @@ import { BLOCKS, Icon } from '../blockCatalog'
 import { SlashMenu } from '../components/editor/SlashMenu'
 import { SettingsPopover } from '../components/editor/SettingsPopover'
 import { ShareDrawer, ThemeDrawer } from '../components/editor/Drawers'
+import { rowLayout, columnCount } from '../lib/layout'
+import { embedInfo } from '../lib/embed'
 
 type Anchor = 'end' | 'start'
 
@@ -37,8 +39,9 @@ function normalizeText(t: string): string {
     .trimEnd()
 }
 
-const TEXT_EDITABLE: BlockType[] = ['heading', 'paragraph', 'shortText', 'longText', 'email', 'phone', 'number', 'date', 'fileUpload']
-const CHOICE_TYPES: BlockType[] = ['multipleChoice', 'checkbox', 'dropdown']
+const INPUT_TEXT_TYPES: BlockType[] = ['shortText', 'longText', 'number', 'email', 'phone', 'link', 'time', 'date', 'fileUpload']
+const OPTION_TYPES: BlockType[] = ['multipleChoice', 'checkbox', 'dropdown', 'multiSelect', 'ranking']
+const TEXT_HEADINGS: BlockType[] = ['heading', 'heading2', 'heading3', 'label']
 
 function starterOptions(): ChoiceOption[] {
   return ['Option 1', 'Option 2', 'Option 3'].map((label) => ({ id: uid(), label }))
@@ -53,6 +56,7 @@ export default function Editor() {
   const addBlock = useForms((s) => s.addBlock)
   const removeBlock = useForms((s) => s.removeBlock)
   const moveBlock = useForms((s) => s.moveBlock)
+  const updateForm = useForms((s) => s.updateForm)
   const updateSettings = useForms((s) => s.updateSettings)
   const submissions = useForms((s) => s.submissions)
 
@@ -66,6 +70,7 @@ export default function Editor() {
   const [shareOpen, setShareOpen] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
+  const [colZone, setColZone] = useState<{ blockId: string; side: 'left' | 'right' } | null>(null)
 
   useEffect(() => {
     if (!ready && formId === 'new') {
@@ -90,10 +95,12 @@ export default function Editor() {
 
   const insertNewBlock = (index: number, type: BlockType, text = '') => {
     if (!form) return
+    const colId = form.blocks[index]?.colId
     const block = makeBlock({
-      ...(CHOICE_TYPES.includes(type) ? { options: starterOptions() } : {}),
+      ...(OPTION_TYPES.includes(type) ? { options: starterOptions() } : {}),
       type,
       text,
+      colId,
     })
     addBlock(form.id, block, index + 1)
     doFocus(block.id, 'end')
@@ -102,7 +109,11 @@ export default function Editor() {
   const convertBlock = (block: Block, type: BlockType, text: string) => {
     if (!form) return
     const patch: Partial<Block> = { type, text }
-    if (CHOICE_TYPES.includes(type)) patch.options = starterOptions()
+    if (OPTION_TYPES.includes(type)) patch.options = starterOptions()
+    if (type === 'matrix') {
+      patch.matrixRows = patch.matrixRows ?? block.matrixRows ?? ['Row 1', 'Row 2']
+      patch.matrixColumns = patch.matrixColumns ?? block.matrixColumns ?? ['Column 1', 'Column 2']
+    }
     updateBlock(form.id, block.id, patch)
     requestAnimationFrame(() => {
       const el = rowRefs.current.get(block.id)
@@ -124,8 +135,8 @@ export default function Editor() {
       setSlash(null)
       return
     }
-    const preferred = TEXT_EDITABLE.includes(block.type) ? block.type : 'shortText'
-    insertNewBlock(index, block.type === 'heading' ? 'paragraph' : preferred)
+    const preferred = INPUT_TEXT_TYPES.includes(block.type) ? block.type : 'shortText'
+    insertNewBlock(index, TEXT_HEADINGS.includes(block.type) ? 'paragraph' : preferred)
   }
 
   const onRemoveAt = (index: number) => {
@@ -193,6 +204,56 @@ export default function Editor() {
     moveBlock(form.id, fromIndex, targetIndex)
   }
 
+  const colJoin = (dragId: string, targetId: string, side: 'left' | 'right') => {
+    if (!form) return
+    const blocks = form.blocks
+    const dragIdx = blocks.findIndex((b) => b.id === dragId)
+    const targetIdx = blocks.findIndex((b) => b.id === targetId)
+    if (dragIdx === -1 || targetIdx === -1 || dragIdx === targetIdx) return
+    let colId = blocks[targetIdx].colId
+    if (!colId) colId = uid()
+    const drag = { ...blocks[dragIdx], colId }
+    const target = { ...blocks[targetIdx], colId }
+    const rest = blocks
+      .filter((b) => b.id !== dragId)
+      .map((b) => (b.id === targetId ? target : b))
+    const at = rest.findIndex((b) => b.id === targetId)
+    rest.splice(side === 'right' ? at + 1 : at, 0, drag)
+    updateForm(form.id, { blocks: rest })
+  }
+
+  const onBlockDragOver = (e: React.DragEvent, block: Block) => {
+    e.preventDefault()
+    if (!form) return
+    e.dataTransfer.dropEffect = 'move'
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = e.clientX
+    const edge = Math.max(28, rect.width * 0.18)
+    if (dragId && dragId !== block.id && x < rect.left + edge) {
+      setColZone({ blockId: block.id, side: 'left' })
+      setOverIndex(null)
+      return
+    }
+    if (dragId && dragId !== block.id && x > rect.right - edge) {
+      setColZone({ blockId: block.id, side: 'right' })
+      setOverIndex(null)
+      return
+    }
+    setColZone(null)
+    setOverIndex(form.blocks.findIndex((b) => b.id === block.id))
+  }
+
+  const onBlockDrop = (e: React.DragEvent, block: Block, index: number) => {
+    e.preventDefault()
+    if (colZone?.blockId === block.id && dragId && dragId !== block.id) {
+      colJoin(dragId, block.id, colZone.side)
+    } else {
+      moveFromDrag(index)
+    }
+    setColZone(null)
+    setOverIndex(null)
+  }
+
   if (!ready || !form) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-ink/40">Loading…</div>
   }
@@ -228,44 +289,57 @@ export default function Editor() {
           <TitleEditor title={form.settings.title} onChange={(t) => updateSettings(form.id, { title: t })} />
 
           <div className="mt-8 space-y-1 pb-40">
-            {form.blocks.map((block, index) => (
-              <BlockRow
-                key={block.id}
-                formId={form.id}
-                block={block}
-                index={index}
-                active={activeId === block.id}
-                focusTick={focusTick.current[block.id] ?? 0}
-                onRegister={(el) => {
-                  if (el) rowRefs.current.set(block.id, el)
-                  else rowRefs.current.delete(block.id)
-                }}
-                onText={(t) => updateBlock(form.id, block.id, { text: normalizeText(t) })}
-                onInput={(text, el) => onQuestionInput(block.id, text, el)}
-                onKeyDown={onBlockKeyDown}
-                onFocusBlock={() => {
-                  setActiveId(block.id)
-                  if (slash) setSlash(null)
-                }}
-                onOpenSettings={() => setSettingsFor(block.id)}
-                onDragStart={() => setDragId(block.id)}
-                onDragEnd={() => {
-                  setDragId(null)
-                  setOverIndex(null)
-                }}
-                onDragOver={(e, i) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  setOverIndex(i)
-                }}
-                onDrop={(e, i) => {
-                  e.preventDefault()
-                  moveFromDrag(i)
-                  setOverIndex(null)
-                }}
-                overIndex={overIndex === index}
-              />
-            ))}
+            {rowLayout(form.blocks).map((row) => {
+              const n = columnCount(row.blocks)
+              const renderBlock = (block: Block) => {
+                const index = form.blocks.findIndex((b) => b.id === block.id)
+                return (
+                  <BlockRow
+                    key={block.id}
+                    formId={form.id}
+                    block={block}
+                    index={index}
+                    active={activeId === block.id}
+                    focusTick={focusTick.current[block.id] ?? 0}
+                    onRegister={(el) => {
+                      if (el) rowRefs.current.set(block.id, el)
+                      else rowRefs.current.delete(block.id)
+                    }}
+                    onText={(t) => updateBlock(form.id, block.id, { text: normalizeText(t) })}
+                    onInput={(text, el) => onQuestionInput(block.id, text, el)}
+                    onKeyDown={onBlockKeyDown}
+                    onFocusBlock={() => {
+                      setActiveId(block.id)
+                      if (slash) setSlash(null)
+                    }}
+                    onOpenSettings={() => setSettingsFor(block.id)}
+                    onDragStart={() => {
+                      setDragId(block.id)
+                      setColZone(null)
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null)
+                      setOverIndex(null)
+                      setColZone(null)
+                    }}
+                    onDragZone={(e) => onBlockDragOver(e, block)}
+                    onDropBlock={(e) => onBlockDrop(e, block, index)}
+                    overIndex={overIndex === index}
+                    colZoneSide={colZone?.blockId === block.id ? colZone.side : null}
+                  />
+                )
+              }
+              if (n === 1) return renderBlock(row.blocks[0])
+              return (
+                <div
+                  key={row.key}
+                  className="col-split gap-x-6 gap-y-2"
+                  style={{ ['--cols' as never]: n === row.blocks.length ? n : row.blocks.length }}
+                >
+                  {row.blocks.map(renderBlock)}
+                </div>
+              )
+            })}
 
             <button
               onMouseDown={(e) => e.preventDefault()}
@@ -406,6 +480,16 @@ function InsertLine() {
   return <div className="absolute -top-[3px] left-0 right-0 z-10 h-[3px] rounded-full bg-brand-500" />
 }
 
+function ColEdgeLine({ side }: { side: 'left' | 'right' }) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-y-0 z-10 w-[3px] rounded-full bg-brand-500 ${
+        side === 'left' ? '-left-1.5' : '-right-1.5'
+      }`}
+    />
+  )
+}
+
 function Rail({
   onOpenSettings,
   onDragStart,
@@ -458,9 +542,10 @@ function BlockRow({
   onOpenSettings,
   onDragStart,
   onDragEnd,
-  onDragOver,
-  onDrop,
+  onDragZone,
+  onDropBlock,
   overIndex,
+  colZoneSide,
 }: {
   formId: string
   block: Block
@@ -475,9 +560,10 @@ function BlockRow({
   onOpenSettings: () => void
   onDragStart: () => void
   onDragEnd: () => void
-  onDragOver: (e: React.DragEvent, i: number) => void
-  onDrop: (e: React.DragEvent, i: number) => void
+  onDragZone: (e: React.DragEvent) => void
+  onDropBlock: (e: React.DragEvent) => void
   overIndex: boolean
+  colZoneSide: 'left' | 'right' | null
 }) {
   const questionRef = useRef<HTMLDivElement>(null)
   const optionRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
@@ -513,7 +599,7 @@ function BlockRow({
     }
   }, [block.options])
 
-  const isChoice = CHOICE_TYPES.includes(block.type)
+  const isChoice = OPTION_TYPES.includes(block.type) || block.type === 'matrix'
 
   const handleQuestionInput = () => {
     const el = questionRef.current
@@ -550,6 +636,17 @@ function BlockRow({
     })
   }
 
+  const moveOption = (id: string, dir: -1 | 1) => {
+    const options = [...(block.options ?? [])]
+    const i = options.findIndex((o) => o.id === id)
+    const j = i + dir
+    if (i === -1 || j < 0 || j >= options.length) return
+    const next = [...options]
+    next[i] = options[j]
+    next[j] = options[i]
+    updateBlock(formId, block.id, { options: next })
+  }
+
   const onOptionKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>, id: string, oi: number) => {
     const el = e.currentTarget
     const options = block.options ?? []
@@ -584,25 +681,80 @@ function BlockRow({
     active ? 'bg-ink/[0.035] ring-1 ring-ink/[0.04]' : 'hover:bg-ink/[0.02]'
   }`
 
-  if (block.type === 'heading') {
+  const headingConfig: Partial<Record<BlockType, { placeholder: string; className: string }>> = {
+    heading: { placeholder: 'Heading', className: 'font-form-serif text-[30px] font-semibold leading-snug text-ink' },
+    heading2: { placeholder: 'Heading 2', className: 'font-form-serif text-[24px] font-semibold leading-snug text-ink' },
+    heading3: { placeholder: 'Heading 3', className: 'font-form-serif text-[19px] font-semibold leading-snug text-ink' },
+    label: { placeholder: 'Label', className: 'text-[13px] font-bold uppercase tracking-wide text-ink/55' },
+  }
+
+  if (headingConfig[block.type]) {
+    const cfg = headingConfig[block.type]!
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-2`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         <div
           ref={questionRef}
           contentEditable
           suppressContentEditableWarning
-          data-placeholder="Heading"
+          data-placeholder={cfg.placeholder}
           onInput={handleQuestionInput}
           onKeyDown={(e) => onKeyDown(e, block, index)}
           onFocus={onFocusBlock}
-          className="empty-placeholder w-full cursor-text font-form-serif text-[30px] font-semibold leading-snug text-ink outline-none"
+          className={`empty-placeholder w-full cursor-text leading-snug outline-none ${cfg.className}`}
         />
+      </div>
+    )
+  }
+
+  if (block.type === 'divider') {
+    return (
+      <div
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
+        className={`${wrapperCls} px-1 py-2`}
+      >
+        {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
+        <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        <div className="flex items-center gap-3 py-2">
+          <span className="h-px flex-1 bg-ink/20" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink/30">Divider</span>
+          <span className="h-px flex-1 bg-ink/20" />
+        </div>
+      </div>
+    )
+  }
+
+  if (block.type === 'embed') {
+    const info = embedInfo(block.embedUrl)
+    return (
+      <div
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
+        className={`${wrapperCls} px-1 py-1.5`}
+      >
+        {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
+        <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        {info ? (
+          <div>
+            <div className="aspect-video w-full max-w-xl overflow-hidden rounded-2xl border border-black/10 bg-black/[0.03]">
+              <iframe src={info.src} title={block.text || info.provider} className="h-full w-full" allowFullScreen />
+            </div>
+            <div className="mt-1.5 text-[12px] text-ink/40">{info.provider} embed</div>
+          </div>
+        ) : (
+          <div className="flex h-36 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-ink/25 bg-white/70 px-4 text-center text-[14px] text-ink/40 transition hover:border-ink/50 hover:text-ink/70">
+            Open block settings (<span className="mx-1 font-semibold">⋮⋮</span>) to paste a YouTube, Vimeo, Spotify, SoundCloud or Maps link
+          </div>
+        )}
       </div>
     )
   }
@@ -610,11 +762,12 @@ function BlockRow({
   if (block.type === 'paragraph') {
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-1.5`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         <div
           ref={questionRef}
@@ -633,11 +786,12 @@ function BlockRow({
   if (block.type === 'pageBreak') {
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-1`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         <div className="flex items-center gap-3 py-1">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink/[0.04] text-ink/40">
@@ -653,11 +807,12 @@ function BlockRow({
   if (block.type === 'thankYou') {
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-1`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
@@ -675,11 +830,12 @@ function BlockRow({
   if (block.type === 'image') {
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-1.5`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         {block.imageUrl ? (
           <img src={block.imageUrl} alt={block.text} className="max-h-[320px] w-fit rounded-2xl border border-black/5" />
@@ -692,15 +848,213 @@ function BlockRow({
     )
   }
 
-  if (isChoice) {
-    const multiple = block.allowMultiple
+  if (block.type === 'ranking') {
     return (
       <div
-        onDragOver={(e) => onDragOver(e, index)}
-        onDrop={(e) => onDrop(e, index)}
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
         className={`${wrapperCls} px-1 py-1.5`}
       >
         {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
+        <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        <div
+          ref={questionRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder="Your question"
+          onInput={handleQuestionInput}
+          onKeyDown={(e) => onKeyDown(e, block, index)}
+          onFocus={onFocusBlock}
+          className="empty-placeholder w-full cursor-text text-[18px] font-medium leading-snug text-ink outline-none"
+        />
+        <div className="mt-3 space-y-2 pl-1">
+          {(block.options ?? []).map((o, oi) => (
+            <div key={o.id} className="group/opt flex w-fit items-center gap-2.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ink/[0.06] text-[12px] font-semibold text-ink/50">
+                {oi + 1}
+              </span>
+              <span
+                ref={(el) => {
+                  if (el) optionRefs.current.set(o.id, el)
+                  else optionRefs.current.delete(o.id)
+                }}
+                contentEditable
+                suppressContentEditableWarning
+                data-placeholder="Option"
+                onInput={() => {
+                  const el = optionRefs.current.get(o.id)
+                  if (el) updateOption(o.id, normalizeText(el.textContent ?? ''))
+                }}
+                onKeyDown={(e) => onOptionKeyDown(e, o.id, oi)}
+                className="empty-placeholder min-w-[80px] cursor-text rounded-md px-1.5 py-0.5 text-[15px] text-ink outline-none transition hover:bg-white"
+              >
+                {o.label}
+              </span>
+              <span className="hidden shrink-0 items-center gap-0.5 text-ink/30 group-hover/opt:flex">
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => moveOption(o.id, -1)}
+                  disabled={oi === 0}
+                  className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-white hover:text-ink/70 disabled:opacity-25"
+                  title="Move up"
+                >
+                  ↑
+                </button>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => moveOption(o.id, 1)}
+                  disabled={oi === (block.options ?? []).length - 1}
+                  className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-white hover:text-ink/70 disabled:opacity-25"
+                  title="Move down"
+                >
+                  ↓
+                </button>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => removeOption(o.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-brand-50 hover:text-brand-600"
+                  title="Remove option"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          ))}
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => addOption()}
+            className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[13px] font-medium text-ink/40 transition hover:bg-white hover:text-ink/70"
+          >
+            + Add option
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (block.type === 'matrix') {
+    const rows = block.matrixRows ?? []
+    const cols = block.matrixColumns ?? []
+    const updateCell = (key: 'matrixRows' | 'matrixColumns', i: number, value: string) => {
+      const list = [...(block[key] ?? [])]
+      list[i] = value
+      updateBlock(formId, block.id, { [key]: list })
+    }
+    const addCell = (key: 'matrixRows' | 'matrixColumns') => {
+      const list = [...(block[key] ?? [])]
+      list.push(key === 'matrixRows' ? `Row ${list.length + 1}` : `Column ${list.length + 1}`)
+      updateBlock(formId, block.id, { [key]: list })
+    }
+    const removeCell = (key: 'matrixRows' | 'matrixColumns', i: number) => {
+      const list = [...(block[key] ?? [])]
+      if (list.length <= 1) return
+      list.splice(i, 1)
+      updateBlock(formId, block.id, { [key]: list })
+    }
+    const cellList = (
+      key: 'matrixRows' | 'matrixColumns',
+      title: string,
+      items: string[],
+      placeholder: string,
+    ) => (
+      <div>
+        <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-ink/40">{title}</div>
+        <div className="space-y-1.5">
+          {items.map((item, i) => (
+            <div key={i} className="group/cell flex w-fit items-center gap-2">
+              <span
+                contentEditable
+                suppressContentEditableWarning
+                data-placeholder={placeholder}
+                onInput={(e) => updateCell(key, i, normalizeText(e.currentTarget.textContent ?? ''))}
+                className="empty-placeholder min-w-[90px] cursor-text rounded-md border border-ink/10 bg-white px-2 py-1 text-[14px] text-ink outline-none focus:border-ink/30"
+              >
+                {item}
+              </span>
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => removeCell(key, i)}
+                className="hidden h-6 w-6 items-center justify-center rounded-md text-ink/30 hover:bg-brand-50 hover:text-brand-600 group-hover/cell:flex"
+                title="Remove"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => addCell(key)}
+            className="flex items-center gap-1 rounded-lg px-1 py-0.5 text-[12px] font-medium text-ink/40 transition hover:bg-white hover:text-ink/70"
+          >
+            + Add {key === 'matrixRows' ? 'row' : 'column'}
+          </button>
+        </div>
+      </div>
+    )
+    return (
+      <div
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
+        className={`${wrapperCls} px-1 py-1.5`}
+      >
+        {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
+        <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
+        <div
+          ref={questionRef}
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder="Your question"
+          onInput={handleQuestionInput}
+          onKeyDown={(e) => onKeyDown(e, block, index)}
+          onFocus={onFocusBlock}
+          className="empty-placeholder w-full cursor-text text-[18px] font-medium leading-snug text-ink outline-none"
+        />
+        <div className="mt-3 flex flex-wrap gap-6 pl-1">
+          {cellList('matrixRows', 'Rows', rows, 'Row')}
+          {cellList('matrixColumns', 'Columns', cols, 'Column')}
+        </div>
+        <div className="pointer-events-none mt-4 overflow-hidden rounded-xl border border-ink/10">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr>
+                <th className="border-b border-ink/10 bg-ink/[0.02]" />
+                {cols.map((c, i) => (
+                  <th key={i} className="border-b border-l border-ink/10 bg-ink/[0.02] px-3 py-2 text-center font-medium text-ink/50">
+                    {c || '—'}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, ri) => (
+                <tr key={ri}>
+                  <td className="border-b border-ink/10 px-3 py-2 text-ink/60">{r || '—'}</td>
+                  {cols.map((_, ci) => (
+                    <td key={ci} className="border-b border-l border-ink/10 px-3 py-2 text-center">
+                      <span className="mx-auto flex h-4 w-4 items-center justify-center rounded-full border border-ink/25" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  if (isChoice) {
+    const multiple = block.allowMultiple || block.type === 'checkbox' || block.type === 'multiSelect'
+    return (
+      <div
+        onDragOver={onDragZone}
+        onDrop={onDropBlock}
+        className={`${wrapperCls} px-1 py-1.5`}
+      >
+        {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
         <div
           ref={questionRef}
@@ -792,11 +1146,12 @@ function BlockRow({
   // question blocks with an inline preview below the editable label
   return (
     <div
-      onDragOver={(e) => onDragOver(e, index)}
-      onDrop={(e) => onDrop(e, index)}
+      onDragOver={onDragZone}
+      onDrop={onDropBlock}
       className={`${wrapperCls} px-1 py-1.5`}
     >
       {overIndex && <InsertLine />}
+        {colZoneSide && <ColEdgeLine side={colZoneSide} />}
       <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
       <div
         ref={questionRef}
@@ -809,7 +1164,7 @@ function BlockRow({
         className="empty-placeholder w-full cursor-text font-form-serif text-[19px] font-medium leading-snug text-ink outline-none"
       />
       <div className="pointer-events-none mt-2.5 pl-1">
-        {block.type === 'shortText' || block.type === 'number' || block.type === 'email' || block.type === 'phone' || block.type === 'date' ? (
+        {block.type === 'shortText' || block.type === 'number' || block.type === 'email' || block.type === 'phone' || block.type === 'date' || block.type === 'link' || block.type === 'time' ? (
           <PreviewBox
             content={
               block.type === 'shortText'
@@ -822,7 +1177,11 @@ function BlockRow({
                     ? 'Phone number'
                     : block.type === 'number'
                       ? '0'
-                      : 'Pick a date'
+                      : block.type === 'link'
+                        ? 'https://…'
+                        : block.type === 'time'
+                          ? 'HH:MM'
+                          : 'Pick a date'
             }
           />
         ) : block.type === 'longText' ? (
@@ -855,6 +1214,21 @@ function BlockRow({
                 {i + 1}
               </span>
             ))}
+          </div>
+        ) : block.type === 'csat' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[12px] text-ink/40">{block.csatMinLabel ?? 'Very unsatisfied'}</span>
+            <div className="flex gap-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span
+                  key={i}
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-ink/[0.06] text-[11px] font-semibold text-ink/50"
+                >
+                  {i + 1}
+                </span>
+              ))}
+            </div>
+            <span className="text-[12px] text-ink/40">{block.csatMaxLabel ?? 'Very satisfied'}</span>
           </div>
         ) : (
           <PreviewBox content="Your answer" />

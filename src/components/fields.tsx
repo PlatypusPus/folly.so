@@ -4,10 +4,15 @@ import type { AnswerValue, Block, FilePayload } from '../types'
 export function getDefaultValue(block: Block): AnswerValue {
   switch (block.type) {
     case 'checkbox':
+    case 'multiSelect':
+    case 'ranking':
       return []
+    case 'matrix':
+      return {}
     case 'rating':
     case 'nps':
     case 'linear':
+    case 'csat':
     case 'fileUpload':
     case 'dropdown':
       return null
@@ -19,6 +24,8 @@ export function getDefaultValue(block: Block): AnswerValue {
 export function isFilled(value: AnswerValue): boolean {
   if (value === undefined || value === null) return false
   if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object' && 'name' in value) return true
+  if (typeof value === 'object') return Object.keys(value).length > 0
   return String(value).trim().length > 0
 }
 
@@ -335,6 +342,261 @@ function FileControl({
   )
 }
 
+function CsatControl({ block, value, onChange }: { block: Block; value: number | null; onChange: (v: number) => void }) {
+  const nums = [1, 2, 3, 4, 5]
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5">
+        <div className="grid flex-1 grid-cols-5 gap-1.5">
+          {nums.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onChange(n)}
+              className={`rounded-lg py-2.5 text-[13px] font-semibold transition ${
+                value === n ? 'bg-ink text-white shadow-md' : 'bg-ink/[0.05] text-ink/70 hover:bg-ink/10'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2 flex justify-between text-[12px] text-ink/45">
+        <span>{block.csatMinLabel || 'Very unsatisfied'}</span>
+        <span>{block.csatMaxLabel || 'Very satisfied'}</span>
+      </div>
+    </div>
+  )
+}
+
+function MultiSelectControl({
+  block,
+  value,
+  onChange,
+}: {
+  block: Block
+  value: string[]
+  onChange: (v: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const options = block.options ?? []
+  const selected = Array.isArray(value) ? value : []
+  const filtered = options.filter((o) => o.label.trim().toLowerCase().includes(query.trim().toLowerCase()))
+
+  const toggle = (label: string) => {
+    onChange(selected.includes(label) ? selected.filter((x) => x !== label) : [...selected, label])
+  }
+
+  return (
+    <div className="relative max-w-xl" ref={ref}>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v)
+          setQuery('')
+        }}
+        className="flex w-full min-h-[50px] cursor-pointer items-center gap-2 rounded-2xl border border-ink/20 bg-white px-3 py-2 text-left transition hover:border-ink/40"
+      >
+        {selected.length === 0 ? (
+          <span className="px-1 text-[15px] text-ink/35">Select options</span>
+        ) : (
+          <span className="flex flex-wrap gap-1.5">
+            {selected.map((s) => (
+              <span
+                key={s}
+                className="flex items-center gap-1 rounded-full bg-ink/[0.06] px-2.5 py-1 text-[12px] font-medium text-ink/80"
+              >
+                {s}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggle(s)
+                  }}
+                  className="text-ink/40 hover:text-ink"
+                  aria-label={`Remove ${s}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </span>
+        )}
+        <svg
+          viewBox="0 0 16 16"
+          className={`ml-auto h-4 w-4 shrink-0 text-ink/40 transition ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-ink/15 bg-white shadow-pop">
+          <div className="border-b border-ink/[0.06] p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search options…"
+              className="w-full rounded-lg bg-ink/[0.04] px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink/35"
+            />
+          </div>
+          <div className="max-h-56 overflow-y-auto p-1.5">
+            {filtered.length === 0 && <div className="px-3 py-4 text-center text-[12px] text-ink/40">No options match.</div>}
+            {filtered.map((o) => (
+              <label
+                key={o.id}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-ink/[0.04]"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded accent-ink"
+                  checked={selected.includes(o.label)}
+                  onChange={() => toggle(o.label)}
+                />
+                <span className="text-[14px] text-ink/85">{o.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RankingControl({
+  block,
+  value,
+  onChange,
+}: {
+  block: Block
+  value: string[]
+  onChange: (v: string[]) => void
+}) {
+  const options = (block.options ?? []).filter((o) => o.label.trim())
+  const order = Array.isArray(value) ? value.filter((v) => options.some((o) => o.label === v)) : []
+
+  const move = (i: number, dir: -1 | 1) => {
+    const next = [...order]
+    const j = i + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+  }
+
+  const select = (label: string) => {
+    const next = order.filter((x) => x !== label)
+    next.push(label)
+    onChange(next)
+  }
+
+  const rankOf = (label: string) => {
+    const idx = order.indexOf(label)
+    return idx === -1 ? null : idx + 1
+  }
+
+  return (
+    <div className="max-w-xl space-y-1.5">
+      {options.map((o) => {
+        const rank = rankOf(o.label)
+        const placed = rank !== null
+        return (
+          <div
+            key={o.id}
+            className={`flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition ${
+              placed ? 'border-ink/40 bg-ink/[0.03]' : 'border-ink/15 hover:border-ink/30'
+            }`}
+          >
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                placed ? 'bg-ink text-white' : 'bg-ink/[0.06] text-ink/40'
+              }`}
+            >
+              {rank ?? '·'}
+            </span>
+            <span className="flex-1 text-[15px] text-ink/85">{o.label}</span>
+            <button
+              type="button"
+              disabled={!placed}
+              onClick={() => {
+                const i = order.indexOf(o.label)
+                move(i, -1)
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-ink/40 transition hover:bg-ink/[0.05] hover:text-ink disabled:opacity-20"
+              aria-label="Move up"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => select(o.label)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+                placed ? 'text-ink/40 hover:bg-ink/[0.05]' : 'bg-ink text-white hover:bg-black'
+              }`}
+              title={placed ? 'Move to end' : 'Add to ranking'}
+            >
+              {placed ? '→ end' : '+ rank'}
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function MatrixControl({
+  block,
+  value,
+  onChange,
+}: {
+  block: Block
+  value: Record<string, string>
+  onChange: (v: Record<string, string>) => void
+}) {
+  const rows = block.matrixRows ?? []
+  const columns = block.matrixColumns ?? []
+  if (rows.length === 0 || columns.length === 0) return null
+  const current = value && typeof value === 'object' ? value : {}
+
+  return (
+    <div className="max-w-xl overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            <th className="p-2" />
+            {columns.map((c) => (
+              <th key={c} className="p-2 text-center text-[13px] font-semibold text-ink/70">
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row}>
+              <td className="p-2 text-[15px] text-ink/85">{row}</td>
+              {columns.map((col) => (
+                <td key={col} className="p-2 text-center">
+                  <input
+                    type="radio"
+                    name={`matrix-${block.id}-${row}`}
+                    className="h-4 w-4 accent-ink"
+                    checked={current[row] === col}
+                    onChange={() => onChange({ ...current, [row]: col })}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function FieldControl({
   block,
   value,
@@ -350,12 +612,13 @@ export function FieldControl({
     case 'shortText':
     case 'email':
     case 'phone':
+    case 'link':
       return (
         <input
-          type={block.type === 'email' ? 'email' : block.type === 'phone' ? 'tel' : 'text'}
+          type={block.type === 'email' ? 'email' : block.type === 'phone' ? 'tel' : block.type === 'link' ? 'url' : 'text'}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={block.placeholder ?? (block.type === 'email' ? 'you@example.com' : 'Type your answer')}
+          placeholder={block.placeholder ?? (block.type === 'email' ? 'you@example.com' : block.type === 'link' ? 'https://…' : 'Type your answer')}
           disabled={preview}
           className="w-full max-w-xl rounded-2xl border border-ink/20 bg-white px-4 py-3 text-[15px] text-ink outline-none transition placeholder:text-ink/35 hover:border-ink/40 focus:border-ink focus:ring-4 focus:ring-ink/[0.06]"
         />
@@ -371,9 +634,10 @@ export function FieldControl({
         />
       )
     case 'date':
+    case 'time':
       return (
         <input
-          type="date"
+          type={block.type}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           className="w-full max-w-xl rounded-2xl border border-ink/20 bg-white px-4 py-3 text-[15px] text-ink outline-none transition hover:border-ink/40 focus:border-ink focus:ring-4 focus:ring-ink/[0.06]"
@@ -392,6 +656,8 @@ export function FieldControl({
       )
     case 'rating':
       return <RatingControl block={block} value={typeof value === 'number' ? value : null} onChange={(v) => onChange(v)} />
+    case 'csat':
+      return <CsatControl block={block} value={typeof value === 'number' ? value : null} onChange={(v) => onChange(v)} />
     case 'nps':
       return <NpsControl block={block} value={typeof value === 'number' ? value : null} onChange={(v) => onChange(v)} />
     case 'linear':
@@ -408,6 +674,12 @@ export function FieldControl({
       )
     case 'dropdown':
       return <DropdownControl block={block} value={value as string | null} onChange={(v) => onChange(v)} />
+    case 'multiSelect':
+      return <MultiSelectControl block={block} value={(value as string[]) ?? []} onChange={(v) => onChange(v)} />
+    case 'ranking':
+      return <RankingControl block={block} value={(value as string[]) ?? []} onChange={(v) => onChange(v)} />
+    case 'matrix':
+      return <MatrixControl block={block} value={(value as Record<string, string>) ?? {}} onChange={(v) => onChange(v)} />
     case 'fileUpload':
       return <FileControl block={block} value={value as FilePayload | null} onChange={(v) => onChange(v)} />
     default:

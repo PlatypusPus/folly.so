@@ -46,13 +46,21 @@ export function SettingsPopover({
   const toggleRequired = () => updateBlock(formId, block.id, { required: !block.required })
   const tryType = (type: BlockType) => {
     const patch: Partial<Block> = { type }
-    if (type === 'multipleChoice' || type === 'checkbox' || type === 'dropdown') {
+    if (['multipleChoice', 'checkbox', 'dropdown', 'multiSelect', 'ranking'].includes(type)) {
       if (!block.options || block.options.length === 0) {
         patch.options = ['Option 1', 'Option 2', 'Option 3'].map((label) => ({ id: Math.random().toString(36).slice(2), label }))
       }
     }
+    if (type === 'matrix') {
+      patch.matrixRows = block.matrixRows ?? ['Row 1', 'Row 2']
+      patch.matrixColumns = block.matrixColumns ?? ['Column 1', 'Column 2']
+    }
     if (type === 'rating') patch.ratingMax = block.ratingMax ?? 5
     if (type === 'linear') patch.linearMax = block.linearMax ?? 5
+    if (type === 'csat') {
+      patch.csatMinLabel = block.csatMinLabel ?? 'Very unsatisfied'
+      patch.csatMaxLabel = block.csatMaxLabel ?? 'Very satisfied'
+    }
     if (type === 'nps') {
       patch.npsMinLabel = block.npsMinLabel ?? 'Not at all likely'
       patch.npsMaxLabel = block.npsMaxLabel ?? 'Extremely likely'
@@ -186,6 +194,45 @@ export function SettingsPopover({
                   label="Max label (10)"
                   value={block.npsMaxLabel ?? ''}
                   onChange={(v) => updateBlock(formId, block.id, { npsMaxLabel: v })}
+                />
+              </div>
+            )}
+
+            {block.type === 'csat' && (
+              <div className="space-y-2 px-2 py-2">
+                <LabeledInput
+                  label="Min label (1)"
+                  value={block.csatMinLabel ?? ''}
+                  onChange={(v) => updateBlock(formId, block.id, { csatMinLabel: v })}
+                />
+                <LabeledInput
+                  label="Max label (5)"
+                  value={block.csatMaxLabel ?? ''}
+                  onChange={(v) => updateBlock(formId, block.id, { csatMaxLabel: v })}
+                />
+              </div>
+            )}
+
+            {['multiSelect', 'ranking'].includes(block.type) && (
+              <Row label="Allow ‘other’ option">
+                <Toggle
+                  on={!!block.allowOther}
+                  onChange={() => updateBlock(formId, block.id, { allowOther: !block.allowOther })}
+                />
+              </Row>
+            )}
+
+            {block.type === 'embed' && (
+              <div className="space-y-2 px-2 py-2">
+                <LabeledInput
+                  label="Embed URL"
+                  value={block.embedUrl ?? ''}
+                  onChange={(v) => updateBlock(formId, block.id, { embedUrl: v })}
+                />
+                <LabeledInput
+                  label="Caption / title"
+                  value={block.text}
+                  onChange={(v) => updateBlock(formId, block.id, { text: v })}
                 />
               </div>
             )}
@@ -348,6 +395,9 @@ export function SettingsPopover({
                 ↓ Move down
               </ActionBtn>
               <ActionBtn onClick={() => duplicateBlock(form.id, block.id)}>⧉ Duplicate</ActionBtn>
+              {block.colId && (
+                <ActionBtn onClick={() => updateBlock(form.id, block.id, { colId: undefined })}>⫴ Split column</ActionBtn>
+              )}
               <ActionBtn danger onClick={() => removeBlock(form.id, block.id)}>
                 ✕ Delete
               </ActionBtn>

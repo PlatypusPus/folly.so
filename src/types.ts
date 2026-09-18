@@ -1,20 +1,31 @@
 export type BlockType =
   | 'heading'
+  | 'heading2'
+  | 'heading3'
+  | 'label'
   | 'paragraph'
+  | 'divider'
   | 'shortText'
   | 'longText'
   | 'number'
   | 'email'
   | 'phone'
+  | 'link'
+  | 'time'
   | 'date'
   | 'rating'
+  | 'csat'
   | 'nps'
   | 'linear'
   | 'multipleChoice'
   | 'checkbox'
   | 'dropdown'
+  | 'multiSelect'
+  | 'ranking'
+  | 'matrix'
   | 'fileUpload'
   | 'image'
+  | 'embed'
   | 'pageBreak'
   | 'thankYou'
 
@@ -48,12 +59,18 @@ export interface Block {
   linearMaxLabel?: string
   npsMinLabel?: string
   npsMaxLabel?: string
+  csatMinLabel?: string
+  csatMaxLabel?: string
+  matrixRows?: string[]
+  matrixColumns?: string[]
   imageUrl?: string
   imageCaption?: string
+  embedUrl?: string
   darkBackground?: boolean
   fileTypes?: string[]
   maxSizeMb?: number
   showIf?: LogicCondition[]
+  colId?: string
 }
 
 export interface FormTheme {
@@ -78,6 +95,7 @@ export interface FormSettings {
   theme: FormTheme
   showProgress: boolean
   poweredBy: boolean
+  customCss?: string
 }
 
 export interface Form {
@@ -93,7 +111,7 @@ export interface Submission {
   id: string
   formId: string
   submittedAt: number
-  answers: Record<string, string | string[] | number | FilePayload | null>
+  answers: Record<string, AnswerValue>
 }
 
 export interface FilePayload {
@@ -101,7 +119,7 @@ export interface FilePayload {
   size: number
 }
 
-export type AnswerValue = string | string[] | number | FilePayload | null
+export type AnswerValue = string | string[] | number | Record<string, string> | FilePayload | null
 
 export function uid(): string {
   return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3)
@@ -131,12 +149,18 @@ export function makeBlock(partial: Partial<Block> & { type: BlockType }): Block 
     linearMaxLabel: partial.linearMaxLabel,
     npsMinLabel: partial.npsMinLabel ?? 'Not at all likely',
     npsMaxLabel: partial.npsMaxLabel ?? 'Extremely likely',
+    csatMinLabel: partial.csatMinLabel ?? 'Very unsatisfied',
+    csatMaxLabel: partial.csatMaxLabel ?? 'Very satisfied',
+    matrixRows: partial.matrixRows ?? (partial.type === 'matrix' ? ['Row 1', 'Row 2'] : undefined),
+    matrixColumns: partial.matrixColumns ?? (partial.type === 'matrix' ? ['Column 1', 'Column 2'] : undefined),
     darkBackground: partial.darkBackground ?? false,
     imageUrl: partial.imageUrl,
     imageCaption: partial.imageCaption,
+    embedUrl: partial.embedUrl,
     fileTypes: partial.fileTypes ?? ['.pdf', '.png', '.jpg', '.jpeg', '.gif', '.doc', '.docx', '.zip', '.mp4'],
     maxSizeMb: partial.maxSizeMb ?? 10,
     showIf: partial.showIf,
+    colId: partial.colId,
   }
   return block
 }

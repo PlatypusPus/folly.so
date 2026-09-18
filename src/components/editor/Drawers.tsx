@@ -28,7 +28,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void }) {
   const updateTheme = useForms((s) => s.updateTheme)
   const updateSettings = useForms((s) => s.updateSettings)
-  const [tab, setTab] = useState<'theme' | 'form'>('theme')
+  const [tab, setTab] = useState<'theme' | 'form' | 'css'>('theme')
   const t = form.settings.theme
 
   const preview = useMemo(
@@ -72,6 +72,12 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
               className={`rounded-md px-2.5 py-1 text-[12px] font-semibold ${tab === 'form' ? 'bg-ink text-white' : 'text-ink/50 hover:bg-ink/[0.05]'}`}
             >
               Form settings
+            </button>
+            <button
+              onClick={() => setTab('css')}
+              className={`rounded-md px-2.5 py-1 text-[12px] font-semibold ${tab === 'css' ? 'bg-ink text-white' : 'text-ink/50 hover:bg-ink/[0.05]'}`}
+            >
+              Custom CSS
             </button>
           </div>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded text-ink/40 hover:bg-ink/[0.05] hover:text-ink">
@@ -162,7 +168,7 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                 </div>
               </div>
             </>
-          ) : (
+          ) : tab === 'form' ? (
             <>
               <div className="space-y-4">
                 <div>
@@ -241,6 +247,33 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                 />
               </div>
             </>
+          ) : (
+            <div>
+              <div className="mb-2 text-[12px] font-bold uppercase tracking-wider text-ink/40">Custom CSS</div>
+              <p className="mb-3 text-[12px] leading-relaxed text-ink/45">
+                Add custom styles for your published form. Tally-style hooks are available:{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-app</code>,{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-form-title</code>,{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-block</code>,{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-question</code>,{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-submit-button</code>,{' '}
+                <code className="rounded bg-ink/[0.05] px-1">.tally-footer</code>.
+              </p>
+              <textarea
+                rows={16}
+                spellCheck={false}
+                value={form.settings.customCss ?? ''}
+                onChange={(e) => updateSettings(form.id, { customCss: e.target.value })}
+                placeholder={'.tally-submit-button {\n  border-radius: 6px;\n  letter-spacing: 0.02em;\n}'}
+                className="w-full rounded-xl border border-ink/15 bg-ink/[0.02] p-3 font-mono text-[12.5px] leading-relaxed text-ink outline-none focus:border-ink"
+              />
+              <button
+                onClick={() => updateSettings(form.id, { customCss: '' })}
+                className="mt-2 text-[12px] font-medium text-ink/40 hover:text-ink"
+              >
+                Clear CSS
+              </button>
+            </div>
           )}
         </div>
       </div>
