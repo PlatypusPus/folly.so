@@ -9,6 +9,7 @@ import { SettingsPopover } from '../components/editor/SettingsPopover'
 import { ShareDrawer, ThemeDrawer } from '../components/editor/Drawers'
 import { rowLayout, columnCount } from '../lib/layout'
 import { embedInfo } from '../lib/embed'
+import { themeFont } from '../components/ui'
 
 type Anchor = 'end' | 'start'
 
@@ -269,7 +270,10 @@ export default function Editor() {
         onOpenShare={() => setShareOpen(true)}
       />
 
-      <main className="editor-canvas flex-1 overflow-y-auto bg-white">
+      <main
+        className="editor-canvas flex-1 overflow-y-auto"
+        style={{ background: form.settings.theme.background, fontFamily: themeFont(form.settings.theme.font) }}
+      >
         {form.settings.coverImageUrl && (
           <div className="w-full h-[180px] sm:h-[220px] overflow-hidden relative">
             <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
@@ -288,7 +292,7 @@ export default function Editor() {
           )}
           <TitleEditor title={form.settings.title} onChange={(t) => updateSettings(form.id, { title: t })} />
 
-          <div className="mt-8 space-y-1 pb-40">
+          <div className="mt-8 space-y-1 pb-24">
             {rowLayout(form.blocks).map((row) => {
               const n = columnCount(row.blocks)
               const renderBlock = (block: Block) => {
@@ -471,7 +475,7 @@ function TitleEditor({ title, onChange }: { title: string; onChange: (t: string)
         if (e.key === 'Escape') (e.currentTarget as HTMLElement).blur()
       }}
       data-placeholder="Untitled form"
-      className="empty-placeholder font-form-serif w-full cursor-text text-[38px] font-semibold leading-[1.15] tracking-tight text-ink outline-none sm:text-[44px]"
+      className="empty-placeholder w-full cursor-text text-[38px] font-semibold leading-[1.15] tracking-tight text-ink outline-none sm:text-[44px]"
     />
   )
 }
@@ -682,9 +686,9 @@ function BlockRow({
   }`
 
   const headingConfig: Partial<Record<BlockType, { placeholder: string; className: string }>> = {
-    heading: { placeholder: 'Heading', className: 'font-form-serif text-[30px] font-semibold leading-snug text-ink' },
-    heading2: { placeholder: 'Heading 2', className: 'font-form-serif text-[24px] font-semibold leading-snug text-ink' },
-    heading3: { placeholder: 'Heading 3', className: 'font-form-serif text-[19px] font-semibold leading-snug text-ink' },
+    heading: { placeholder: 'Heading', className: 'text-[30px] font-semibold leading-snug text-ink' },
+    heading2: { placeholder: 'Heading 2', className: 'text-[24px] font-semibold leading-snug text-ink' },
+    heading3: { placeholder: 'Heading 3', className: 'text-[19px] font-semibold leading-snug text-ink' },
     label: { placeholder: 'Label', className: 'text-[13px] font-bold uppercase tracking-wide text-ink/55' },
   }
 
@@ -777,7 +781,7 @@ function BlockRow({
           onInput={handleQuestionInput}
           onKeyDown={(e) => onKeyDown(e, block, index)}
           onFocus={onFocusBlock}
-          className="empty-placeholder w-full cursor-text font-form-serif text-[17px] leading-relaxed text-ink/75 outline-none"
+          className="empty-placeholder w-full cursor-text text-[17px] leading-relaxed text-ink/75 outline-none"
         />
       </div>
     )
@@ -1161,7 +1165,7 @@ function BlockRow({
         onInput={handleQuestionInput}
         onKeyDown={(e) => onKeyDown(e, block, index)}
         onFocus={onFocusBlock}
-        className="empty-placeholder w-full cursor-text font-form-serif text-[19px] font-medium leading-snug text-ink outline-none"
+        className="empty-placeholder w-full cursor-text text-[19px] font-medium leading-snug text-ink outline-none"
       />
       <div className="pointer-events-none mt-2.5 pl-1">
         {block.type === 'shortText' || block.type === 'number' || block.type === 'email' || block.type === 'phone' || block.type === 'date' || block.type === 'link' || block.type === 'time' ? (

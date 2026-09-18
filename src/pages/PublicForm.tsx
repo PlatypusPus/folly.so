@@ -44,9 +44,9 @@ function BlockView({
       block.type === 'label'
         ? 'text-[13px] font-bold uppercase tracking-wide opacity-60'
         : block.type === 'heading3'
-          ? 'font-form-serif text-[19px] font-semibold leading-snug'
+          ? 'text-[19px] font-semibold leading-snug'
           : block.type === 'heading2'
-            ? 'font-form-serif text-[24px] font-semibold leading-snug'
+            ? 'text-[24px] font-semibold leading-snug'
             : ''
     return (
       <div className={`py-1 ${cls}`}>
@@ -73,7 +73,7 @@ function BlockView({
   }
   if (block.type === 'paragraph') {
     return (
-      <p className="font-form-serif text-[18px] leading-relaxed">
+      <p className="text-[18px] leading-relaxed">
         <RichText text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)} />
       </p>
     )
@@ -267,8 +267,6 @@ export default function PublicForm() {
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const headerFont = blockHeadingFontName(font)
-
   if (submitted) {
     const ctaText = form.settings.thankYouButtonText?.trim()
     const ctaUrl = form.settings.thankYouButtonUrl?.trim()
@@ -283,7 +281,8 @@ export default function PublicForm() {
             <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
           </div>
         )}
-        <main className="mx-auto w-full max-w-2xl flex-1 px-6 pb-16 pt-12 flex flex-col items-center justify-center text-center relative">
+        <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pb-16 pt-12 text-center">
+          <div className="my-auto flex w-full flex-col items-center">
           {form.settings.logoUrl && (
             <div
               className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
@@ -303,7 +302,7 @@ export default function PublicForm() {
                 <path d="m5 13 4 4L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <h1 className="font-form-serif mt-6 text-3xl font-semibold leading-tight sm:text-4xl" style={{ fontFamily: headerFont }}>
+            <h1 className="mt-6 text-3xl font-semibold leading-tight sm:text-4xl">
               {pipeText(form.settings.thankYouMessage, answers, form.blocks, form.settings.hiddenFields)}
             </h1>
             {visited && <p className="mt-3 text-[14px] opacity-50">Response recorded</p>}
@@ -322,6 +321,7 @@ export default function PublicForm() {
             )}
           </div>
           {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
+          </div>
         </main>
       </div>
     )
@@ -347,19 +347,20 @@ export default function PublicForm() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 pb-16 pt-10 relative">
-        {form.settings.logoUrl && (
-          <div
-            className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
-              form.settings.coverImageUrl ? '-mt-20 sm:-mt-22 mb-6 z-10 relative' : 'mb-6'
-            }`}
-            style={{ borderColor: theme.background }}
-          >
-            <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-          </div>
-        )}
-        <div className="tally-form-title mb-10">
-          <div className="font-form-serif text-[38px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]" style={{ fontFamily: headerFont, color: dark ? '#fff' : '#1c1c1e' }}>
+      <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pb-16 pt-10">
+        <div className="my-auto w-full">
+          {form.settings.logoUrl && (
+            <div
+              className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-4 shadow-sm ${
+                form.settings.coverImageUrl ? '-mt-20 sm:-mt-22 mb-6 z-10 relative' : 'mb-6'
+              }`}
+              style={{ borderColor: theme.background }}
+            >
+              <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="tally-form-title mb-10">
+          <div className="text-[38px] font-semibold leading-[1.15] tracking-tight sm:text-[44px]" style={{ color: dark ? '#fff' : '#1c1c1e' }}>
             <RichText text={pipeText(form.settings.title, answers, form.blocks, form.settings.hiddenFields)} />
           </div>
           {form.settings.description && (
@@ -420,6 +421,7 @@ export default function PublicForm() {
             </button>
           </div>
         </form>
+        </div>
       </main>
 
       {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
@@ -434,10 +436,6 @@ function sanitizeUrl(url: string): string {
     return trimmed
   }
   return `https://${trimmed}`
-}
-
-function blockHeadingFontName(_font: string): string {
-  return "'DM Serif Display', Georgia, serif"
 }
 
 function PoweredBy({ dark, font }: { dark: boolean; font: string }) {
