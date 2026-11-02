@@ -161,6 +161,8 @@ export default function PublicForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [currentPage, setCurrentPage] = useState(0)
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [visited, setVisited] = useState(false)
   const [formFailed, setFormFailed] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
@@ -265,7 +267,8 @@ export default function PublicForm() {
     setCurrentPage((p) => Math.min(p + 1, pageCount - 1))
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (submitting) return
     if (!validateVisible()) {
       topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
@@ -295,7 +298,17 @@ export default function PublicForm() {
         }
       }
     }
-    addSubmission(form.id, collected)
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      await addSubmission(form.id, collected)
+    } catch (err) {
+      console.error('[folly] failed to save submission', err)
+      setSubmitError('We couldn’t save your response. Please check your connection and try again.')
+      return
+    } finally {
+      setSubmitting(false)
+    }
     setAnswers((a) => ({ ...a, ...scorePatch }))
 
     // Redirect logic:
@@ -307,7 +320,6 @@ export default function PublicForm() {
       }
     }
 
-    // keep file names off the persisted summary to keep localStorage tidy
     setSubmitted(true)
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -419,7 +431,7 @@ export default function PublicForm() {
           onSubmit={(e) => {
             e.preventDefault()
             if (safePage < pageCount - 1) goNext()
-            else submit()
+            else void submit()
           }}
           className="tally-form space-y-8"
         >
@@ -459,12 +471,18 @@ export default function PublicForm() {
             )}
             <button
               type="submit"
-              className="tally-submit-button rounded-full px-8 py-3.5 text-[15px] font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
+              disabled={submitting}
+              className="tally-submit-button rounded-full px-8 py-3.5 text-[15px] font-semibold shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
               style={{ background: accent, color: theme.buttonText }}
             >
-              {safePage < pageCount - 1 ? 'Next' : 'Submit'}
+              {safePage < pageCount - 1 ? 'Next' : submitting ? 'Submitting…' : 'Submit'}
             </button>
           </div>
+          {submitError && (
+            <p role="alert" className="text-right text-[13px] font-medium text-brand-600">
+              {submitError}
+            </p>
+          )}
         </form>
         </div>
       </main>
