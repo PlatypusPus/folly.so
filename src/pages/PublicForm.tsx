@@ -284,11 +284,10 @@ export default function PublicForm() {
     for (const b of form.blocks) {
       if (NON_ANSWER_TYPES.includes(b.type)) continue
       if (b.type === 'score') continue
-      if (b.type !== 'fileUpload') {
-        const v = answers[b.id]
-        if (Array.isArray(v) && v.length === 0) collected[b.id] = null
-        else collected[b.id] = v ?? null
-      }
+      // ponytail: file answers keep name + size only; real file storage is a separate feature
+      const v = answers[b.id]
+      if (Array.isArray(v) && v.length === 0) collected[b.id] = null
+      else collected[b.id] = v ?? null
     }
     if (form.settings.hiddenFields) {
       for (const field of form.settings.hiddenFields) {
