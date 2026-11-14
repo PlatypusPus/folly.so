@@ -94,9 +94,17 @@ export function ThemeDrawer({ form, onClose }: { form: Form; onClose: () => void
                   {PRESETS.map((p) => (
                     <button
                       key={p.name}
-                      onClick={() => updateTheme(form.id, p.theme)}
+                      onClick={() => {
+                        const { font: _presetFont, ...restTheme } = p.theme
+                        updateTheme(form.id, {
+                          ...restTheme,
+                          font: t.font,
+                          customFontBase64: t.customFontBase64,
+                          customFontName: t.customFontName,
+                        })
+                      }}
                       className={`overflow-hidden rounded-xl border text-center transition ${
-                        t.background === p.theme.background && t.button === p.theme.button && t.font === p.theme.font
+                        t.background === p.theme.background && t.button === p.theme.button && t.darkMode === p.theme.darkMode
                           ? 'border-ink ring-2 ring-ink/10'
                           : 'border-ink/10 hover:border-ink/30'
                       }`}
