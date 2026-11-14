@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { AnswerValue, Block, Form } from '../types'
 import { uid } from '../types'
 import { useForms } from '../store'
-import { blockVisible, computeScore, formatWhen, getPageJumpTarget, getQuestionLabel, pipeText, splitBlocksByPage, splitIntoPages } from '../lib/logic'
+import { blockVisible, computeScore, computeTotalQuizScore, formatWhen, getPageJumpTarget, getQuestionLabel, pipeText, splitBlocksByPage, splitIntoPages } from '../lib/logic'
 import { rowLayout, resolveRow } from '../lib/layout'
 import { embedInfo } from '../lib/embed'
 import { FieldControl, getDefaultValue, isFilled } from '../components/fields'
@@ -11,6 +11,14 @@ import { RichText } from '../components/richtext'
 import { LogoMark, themeFont } from '../components/ui'
 
 const NON_ANSWER_TYPES = ['heading', 'heading2', 'heading3', 'label', 'paragraph', 'image', 'divider', 'embed', 'pageBreak', 'thankYou']
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
 
 function notFound() {
   return (
@@ -40,114 +48,138 @@ function BlockView({
   errors: Record<string, string>
   onChange: (blockId: string, v: AnswerValue) => void
 }) {
-  if (block.type === 'heading' || block.type === 'heading2' || block.type === 'heading3' || block.type === 'label') {
-    const cls =
-      block.type === 'label'
-        ? 'text-[13px] font-bold uppercase tracking-wide opacity-60'
-        : block.type === 'heading3'
-          ? 'text-[19px] font-semibold leading-snug'
-          : block.type === 'heading2'
-            ? 'text-[24px] font-semibold leading-snug'
-            : ''
-    return (
-      <div className={`py-1 ${cls}`}>
-        <RichText
-          text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)}
-        />
-      </div>
-    )
+  const blockStyle: React.CSSProperties = {
+    fontFamily: block.font ? themeFont(block.font) : undefined,
+    textAlign: block.textAlign,
+    color: block.textColor,
+    backgroundColor: block.bgColor,
   }
-  if (block.type === 'divider') {
-    return <hr className="my-2 h-px w-full border-0 bg-current opacity-15" />
-  }
-  if (block.type === 'embed') {
-    const info = embedInfo(block.embedUrl)
-    if (!info) return null
-    return (
-      <div className="py-1">
-        <div className="aspect-video w-full max-w-xl overflow-hidden rounded-2xl border border-black/10">
-          <iframe src={info.src} title={block.text || info.provider} className="h-full w-full" allowFullScreen />
+  const blockCardCls = (block.cardBorder || block.bgColor)
+    ? 'border-2 border-black p-4 sm:p-5 shadow-[4px_4px_0px_#000] my-2'
+    : ''
+
+  const renderContent = () => {
+    if (block.type === 'heading' || block.type === 'heading2' || block.type === 'heading3' || block.type === 'label') {
+      const cls =
+        block.type === 'label'
+          ? 'text-[13px] font-bold uppercase tracking-wide opacity-60'
+          : block.type === 'heading3'
+            ? 'text-[19px] font-semibold leading-snug'
+            : block.type === 'heading2'
+              ? 'text-[24px] font-semibold leading-snug'
+              : ''
+      return (
+        <div className={`py-1 ${cls}`}>
+          <RichText
+            text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)}
+          />
         </div>
-        {block.text && <p className="mt-2 text-[13px] opacity-60">{block.text}</p>}
-      </div>
-    )
-  }
-  if (block.type === 'paragraph') {
-    return (
-      <p className="text-[18px] leading-relaxed">
-        <RichText text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)} />
-      </p>
-    )
-  }
-  if (block.type === 'image') {
-    return (
-      <div className="py-1">
-        {block.imageUrl ? (
-          <div>
-            <img src={block.imageUrl} alt={block.text || 'image'} className="max-h-[340px] w-fit rounded-2xl border border-black/5" />
-            {block.imageCaption && <p className="mt-2 text-[13px] italic">{block.imageCaption}</p>}
-          </div>
-        ) : (
-          <div className="flex h-28 w-full max-w-md items-center justify-center rounded-2xl border border-dashed border-black/20 text-sm">
-            Image
-          </div>
-        )}
-      </div>
-    )
-  }
-  if (block.type === 'pageBreak') return null
-  if (block.type === 'thankYou') return null
-
-  const questionStyle = block.type === 'longText' ? 'text-[20px]' : 'text-[19px]'
-  const visibleIndex = (() => {
-    let n = -1
-    for (const b of form.blocks) {
-      const isQ = !NON_ANSWER_TYPES.includes(b.type)
-      if (!isQ || !blockVisible(b, answers)) continue
-      n += 1
-      if (b.id === block.id) return n
+      )
     }
-    return n
-  })()
-  const qNum = visibleIndex >= 0 ? visibleIndex + 1 : null
-  const questionCls = [
-    'tally-question',
-    'q',
-    qNum ? `q${qNum} q-${qNum}` : '',
-    `q-${block.type}`,
-    block.type === 'multipleChoice' ? 'q-multi' : '',
-    block.type === 'checkbox' ? 'q-check' : '',
-    block.type === 'shortText' ? 'q-short' : '',
-    block.type === 'longText' ? 'q-long' : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
+    if (block.type === 'divider') {
+      return <hr className="my-2 h-px w-full border-0 bg-current opacity-15" />
+    }
+    if (block.type === 'embed') {
+      const info = embedInfo(block.embedUrl)
+      if (!info) return null
+      return (
+        <div className="py-1">
+          <div className="aspect-video w-full max-w-xl overflow-hidden rounded-2xl border border-black/10">
+            <iframe src={info.src} title={block.text || info.provider} className="h-full w-full" allowFullScreen />
+          </div>
+          {block.text && <p className="mt-2 text-[13px] opacity-60">{block.text}</p>}
+        </div>
+      )
+    }
+    if (block.type === 'paragraph') {
+      return (
+        <p className="text-[18px] leading-relaxed">
+          <RichText text={pipeText(block.text, answers, form.blocks, form.settings.hiddenFields)} />
+        </p>
+      )
+    }
+    if (block.type === 'image') {
+      return (
+        <div className="py-1">
+          {block.imageUrl ? (
+            <div>
+              <img src={block.imageUrl} alt={block.text || 'image'} className="max-h-[340px] w-fit rounded-2xl border border-black/5" />
+              {block.imageCaption && <p className="mt-2 text-[13px] italic">{block.imageCaption}</p>}
+            </div>
+          ) : (
+            <div className="flex h-28 w-full max-w-md items-center justify-center rounded-2xl border border-dashed border-black/20 text-sm">
+              Image
+            </div>
+          )}
+        </div>
+      )
+    }
+    if (block.type === 'pageBreak') return null
+    if (block.type === 'thankYou') return null
 
-  return (
-    <div
-      className={`${questionCls} py-1`}
-      data-q={qNum ?? undefined}
-      data-block-id={block.id}
-      data-block-type={block.type}
-    >
-      <label className={`mb-2.5 block font-medium leading-snug ${questionStyle}`}>
-        <span className="mr-1.5 inline-block text-[14px] font-normal text-ink/35 align-1">
-          {form.settings.showProgress && qNum ? `${qNum}.` : ''}
-        </span>
-        <RichText text={pipeText(block.text || getQuestionLabel(block), answers, form.blocks, form.settings.hiddenFields)} />
-        {block.required && <span className="ml-1 text-brand-500">*</span>}
-      </label>
-      <div onClick={(e) => e.stopPropagation()}>
-        <FieldControl
-          block={block}
-          value={block.type === 'score' ? computeScore(block, answers, form.blocks) : (answers[block.id] ?? getDefaultValue(block))}
-          onChange={(v) => onChange(block.id, v)}
-          formSettings={form.settings}
-        />
+    const questionStyle = block.type === 'longText' ? 'text-[20px]' : 'text-[19px]'
+    const visibleIndex = (() => {
+      let n = -1
+      for (const b of form.blocks) {
+        const isQ = !NON_ANSWER_TYPES.includes(b.type)
+        if (!isQ || !blockVisible(b, answers)) continue
+        n += 1
+        if (b.id === block.id) return n
+      }
+      return n
+    })()
+    const qNum = visibleIndex >= 0 ? visibleIndex + 1 : null
+    const questionCls = [
+      'tally-question',
+      'q',
+      qNum ? `q${qNum} q-${qNum}` : '',
+      `q-${block.type}`,
+      block.type === 'multipleChoice' ? 'q-multi' : '',
+      block.type === 'checkbox' ? 'q-check' : '',
+      block.type === 'shortText' ? 'q-short' : '',
+      block.type === 'longText' ? 'q-long' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return (
+      <div
+        className={`${questionCls} py-1`}
+        data-q={qNum ?? undefined}
+        data-block-id={block.id}
+        data-block-type={block.type}
+      >
+        <label className={`mb-2.5 block font-medium leading-snug ${questionStyle}`}>
+          <span className="mr-1.5 inline-block text-[14px] font-normal text-ink/35 align-1">
+            {form.settings.showProgress && qNum ? `${qNum}.` : ''}
+          </span>
+          <RichText text={pipeText(block.text || getQuestionLabel(block), answers, form.blocks, form.settings.hiddenFields)} />
+          {block.required && <span className="ml-1 text-brand-500">*</span>}
+        </label>
+        <div onClick={(e) => e.stopPropagation()}>
+          <FieldControl
+            block={block}
+            value={block.type === 'score' ? computeScore(block, answers, form.blocks) : (answers[block.id] ?? getDefaultValue(block))}
+            onChange={(v) => onChange(block.id, v)}
+            formSettings={form.settings}
+          />
+        </div>
+        {errors[block.id] && <p className="mt-1.5 text-[13px] font-medium text-brand-600">{errors[block.id]}</p>}
       </div>
-      {errors[block.id] && <p className="mt-1.5 text-[13px] font-medium text-brand-600">{errors[block.id]}</p>}
-    </div>
-  )
+    )
+  }
+
+  const content = renderContent()
+  if (!content) return null
+
+  if (block.font || block.textAlign || block.textColor || block.bgColor || block.cardBorder) {
+    return (
+      <div style={blockStyle} className={blockCardCls}>
+        {content}
+      </div>
+    )
+  }
+  return content
 }
 
 function getUrlQueryParams(): Record<string, string> {
@@ -222,7 +254,10 @@ export default function PublicForm() {
 
   const pages = useMemo(() => (form ? splitBlocksByPage(form.blocks) : []), [form])
   const safePage = Math.min(currentPage, Math.max(0, pages.length - 1))
-  const visibleHere = (pages[safePage] ?? []).filter((b) => b.type === 'pageBreak' || b.type === 'thankYou' || blockVisible(b, answers))
+  const visibleHere = (pages[safePage] ?? []).filter((b) => {
+    if (b.type === 'score' && !b.showDuringForm) return false
+    return b.type === 'pageBreak' || b.type === 'thankYou' || blockVisible(b, answers)
+  })
 
   useEffect(() => {
     setVisited(true)
@@ -248,6 +283,37 @@ export default function PublicForm() {
       for (const field of form.settings.hiddenFields) {
         if (qParams[field] !== undefined) {
           initialAnswers[field] = qParams[field]
+        }
+      }
+    }
+
+    // Capture incoming URL query parameters into answers for metadata/telemetry
+    for (const [key, val] of Object.entries(qParams)) {
+      if (initialAnswers[key] === undefined) {
+        initialAnswers[key] = val
+      }
+    }
+
+    // Pre-fill matching question fields (by block ID, block type, or question text)
+    if (form?.blocks) {
+      for (const [key, val] of Object.entries(qParams)) {
+        const normalizedKey = slugify(key)
+        for (const block of form.blocks) {
+          if (NON_ANSWER_TYPES.includes(block.type)) continue
+
+          const isIdMatch = block.id === key
+          const isTypeMatch = block.type.toLowerCase() === key.toLowerCase()
+          const blockSlug = slugify(block.text || getQuestionLabel(block))
+          const isTextMatch = blockSlug === normalizedKey || (normalizedKey === 'name' && blockSlug.includes('name'))
+
+          if (isIdMatch || isTypeMatch || isTextMatch) {
+            if (block.type === 'checkbox' || block.allowMultiple) {
+              const items = val.split(',').map((s) => s.trim())
+              initialAnswers[block.id] = items
+            } else {
+              initialAnswers[block.id] = val
+            }
+          }
         }
       }
     }
@@ -463,7 +529,7 @@ export default function PublicForm() {
 
   const isPageVisible = (pageIdx: number): boolean => {
     const pageBlocks = pages[pageIdx] ?? []
-    return pageBlocks.some((b) => b.type !== 'pageBreak' && b.type !== 'thankYou' && blockVisible(b, answers))
+    return pageBlocks.some((b) => b.type !== 'pageBreak' && b.type !== 'thankYou' && (b.type !== 'score' || b.showDuringForm) && blockVisible(b, answers))
   }
 
   const findNextVisiblePage = (fromPage: number): number | 'submit' => {
@@ -627,51 +693,86 @@ export default function PublicForm() {
   if (submitted) {
     const ctaText = form.settings.thankYouButtonText?.trim()
     const ctaUrl = form.settings.thankYouButtonUrl?.trim()
+    const quizResult = computeTotalQuizScore(form.blocks, answers)
 
     return (
       <div
-        className="tally-app flex min-h-screen flex-col bg-[#fffdfa] text-black"
-        style={{ fontFamily: font }}
+        className={`tally-app flex min-h-screen flex-col ${dark ? 'dark' : ''}`}
+        style={{ background: theme.background || '#fffdfa', fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}
       >
         {form.settings.coverImageUrl && (
-          <div className="w-full h-[180px] sm:h-[240px] overflow-hidden relative border-b-2 border-black">
+          <div className="w-full h-[180px] sm:h-[240px] overflow-hidden relative">
             <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
           </div>
         )}
-        <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pb-16 pt-12 text-center">
+        <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 sm:px-6 pb-16 pt-12 text-center">
           <div className="my-auto flex w-full flex-col items-center">
-          {form.settings.logoUrl && (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-black overflow-hidden shadow-[4px_4px_0px_#000] mb-6 bg-white">
-              <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-            </div>
-          )}
-          <div className="w-full max-w-xl animate-pop border-3 border-black bg-white p-8 sm:p-12 shadow-[8px_8px_0px_#000] flex flex-col items-center">
-            <span className="flex h-16 w-16 items-center justify-center border-2 border-black bg-[#ffe600] text-black shadow-[3px_3px_0px_#000]">
-              <svg viewBox="0 0 24 24" className="h-8 w-8">
-                <path d="m5 13 4 4L19 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <div className="mt-4 inline-block bg-[#00ef84] text-black border border-black px-3 py-1 font-mono text-xs font-black uppercase">
-              STATUS // SUBMISSION VERIFIED
-            </div>
-            <h1 className="mt-4 text-3xl sm:text-4xl font-black uppercase tracking-tight text-black">
-              {pipeText(form.settings.thankYouMessage, answers, form.blocks, form.settings.hiddenFields)}
-            </h1>
-            {visited && <p className="mt-2 font-mono text-xs font-bold text-neutral-500">Captured to secure database</p>}
-            {ctaText && ctaUrl && (
-              <div className="mt-6">
-                <a
-                  href={sanitizeUrl(ctaUrl)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block border-2 border-black bg-[#ffe600] text-black font-black uppercase text-xs sm:text-sm px-8 py-3.5 shadow-[4px_4px_0px_#000] hover:bg-[#facc15] hover:shadow-[5px_5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
-                >
-                  {ctaText} →
-                </a>
+            {form.settings.logoUrl && (
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-sm border border-neutral-200/80 dark:border-neutral-800 mb-6 bg-white dark:bg-neutral-900">
+                <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
               </div>
             )}
-          </div>
-          {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
+            <div className="w-full max-w-lg rounded-3xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900/90 p-8 sm:p-12 shadow-sm sm:shadow-lg backdrop-blur-xs flex flex-col items-center">
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-full shadow-sm ring-8 ring-emerald-500/10 mb-4"
+                style={{
+                  backgroundColor: dark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)',
+                  color: '#10b981',
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-emerald-600 dark:text-emerald-400">
+                  <path d="m5 13 4 4L19 7" />
+                </svg>
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 leading-snug">
+                {pipeText(form.settings.thankYouMessage, answers, form.blocks, form.settings.hiddenFields)}
+              </h1>
+
+              {quizResult.hasQuiz && (
+                <div className="mt-8 w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-800/50 p-6 text-center shadow-xs">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+                    Quiz Results
+                  </p>
+                  <div className="mt-2 text-4xl sm:text-5xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+                    {quizResult.totalScore}
+                    {quizResult.maxScore > 0 && (
+                      <span className="text-2xl font-medium text-neutral-400 dark:text-neutral-500 ml-1">
+                        / {quizResult.maxScore}
+                      </span>
+                    )}
+                    <span className="text-base font-semibold text-neutral-500 dark:text-neutral-400 ml-2">pts</span>
+                  </div>
+                  {quizResult.maxScore > 0 && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      {Math.round((quizResult.totalScore / quizResult.maxScore) * 100)}% accuracy
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {ctaText && ctaUrl && (
+                <div className="mt-8">
+                  <a
+                    href={sanitizeUrl(ctaUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      backgroundColor: theme.button || '#0b0f19',
+                      color: theme.buttonText || '#ffffff',
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-semibold tracking-wide shadow-sm hover:shadow-md hover:brightness-105 active:scale-[0.98] transition-all"
+                  >
+                    <span>{ctaText}</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </a>
+                </div>
+              )}
+            </div>
+            {form.settings.poweredBy && <PoweredBy dark={dark} font={font} />}
           </div>
         </main>
       </div>
@@ -681,40 +782,49 @@ export default function PublicForm() {
   const progress = (pageCount > 1 ? (safePage + 1) / pageCount : 1) * 100
 
   return (
-    <div ref={topRef} className={`tally-app flex min-h-screen flex-col bg-[#fffdfa] text-black`} style={{ fontFamily: font }}>
-      {/* Top Chunky Progress Bar */}
-      <div className="h-2 w-full border-b-2 border-black bg-neutral-200">
-        <div className="h-full bg-[#ffe600] border-r-2 border-black transition-all duration-300" style={{ width: `${progress}%` }} />
-      </div>
+    <div
+      ref={topRef}
+      className={`tally-app flex min-h-screen flex-col ${dark ? 'dark' : ''}`}
+      style={{ background: theme.background || '#fffdfa', fontFamily: font, color: dark ? '#f5f5f5' : '#0b0f19' }}
+    >
+      {/* Top Progress Bar - Sticky at top during scroll */}
+      {form.settings.showProgress !== false && (
+        <div className="sticky top-0 z-50 h-1.5 w-full bg-neutral-100 dark:bg-neutral-800">
+          <div
+            className="h-full transition-all duration-300 ease-out"
+            style={{ width: `${progress}%`, backgroundColor: theme.button || '#0b0f19' }}
+          />
+        </div>
+      )}
 
       {form.settings.coverImageUrl && (
-        <div className="w-full h-[180px] sm:h-[240px] overflow-hidden relative border-b-2 border-black">
+        <div className="w-full h-[180px] sm:h-[240px] overflow-hidden relative">
           <img src={form.settings.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
         </div>
       )}
 
       {pageCount > 1 && (
         <div className="mx-auto w-full max-w-2xl mt-6 px-6 flex justify-end">
-          <span className="font-mono text-xs font-bold uppercase bg-black text-white px-3 py-1 border-2 border-black shadow-[2px_2px_0px_#ffe600]">
-            PAGE {safePage + 1} / {pageCount}
+          <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800/80 px-3 py-1 rounded-full">
+            Page {safePage + 1} of {pageCount}
           </span>
         </div>
       )}
 
       <main className="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 sm:px-6 pb-16 pt-6">
-        <div className="w-full border-2 sm:border-3 border-black bg-white p-6 sm:p-10 shadow-[8px_8px_0px_#000]">
+        <div className="w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900/90 p-6 sm:p-10 shadow-sm sm:shadow-md backdrop-blur-xs">
           {form.settings.logoUrl && (
-            <div className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-black overflow-hidden shadow-[4px_4px_0px_#000] mb-6 bg-white">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-sm border border-neutral-200/80 dark:border-neutral-800 mb-6 bg-white dark:bg-neutral-900">
               <img src={form.settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>
           )}
 
-          <div className="tally-form-title mb-8 border-b-2 border-black pb-6">
-            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-black">
+          <div className="tally-form-title mb-8 border-b border-neutral-100 dark:border-neutral-800/80 pb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
               <RichText text={pipeText(form.settings.title, answers, form.blocks, form.settings.hiddenFields)} />
             </h1>
             {form.settings.description && (
-              <p className="mt-2 text-sm sm:text-base font-bold text-neutral-700 leading-relaxed">
+              <p className="mt-2 text-sm sm:text-base text-neutral-600 dark:text-neutral-400 leading-relaxed">
                 <RichText text={pipeText(form.settings.description, answers, form.blocks, form.settings.hiddenFields)} />
               </p>
             )}
@@ -755,7 +865,7 @@ export default function PublicForm() {
             })}
             </fieldset>
 
-            <div className="flex items-center justify-between pt-6 border-t-2 border-black">
+            <div className="flex items-center justify-between pt-6 border-t border-neutral-200/80 dark:border-neutral-800/80 mt-8">
               {safePage > 0 ? (
                 <button
                   type="button"
@@ -770,9 +880,12 @@ export default function PublicForm() {
                       setCurrentPage(findPrevVisiblePage(safePage))
                     }
                   }}
-                  className="border-2 border-black bg-white text-black font-black uppercase text-xs px-5 py-3 shadow-[2px_2px_0px_#000] hover:bg-neutral-100 transition"
+                  className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800/80 transition"
                 >
-                  ← BACK
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>Back</span>
                 </button>
               ) : (
                 <span />
@@ -780,15 +893,47 @@ export default function PublicForm() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="tally-submit-button border-2 border-black bg-[#ffe600] text-black font-black uppercase text-xs sm:text-sm px-8 py-3.5 shadow-[4px_4px_0px_#000] hover:bg-[#facc15] hover:shadow-[5px_5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all disabled:cursor-wait disabled:opacity-60"
+                aria-busy={submitting}
+                style={{
+                  backgroundColor: theme.button || '#0b0f19',
+                  color: theme.buttonText || '#ffffff',
+                }}
+                className="tally-submit-button group inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-sm hover:shadow-md hover:brightness-105 active:scale-[0.98] transition-all disabled:cursor-wait disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
-                {!isLastPage ? 'NEXT STEP →' : submitting ? 'SUBMITTING…' : 'SUBMIT FORM →'}
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-1.5 h-4 w-4 text-current" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Submitting…</span>
+                  </>
+                ) : !isLastPage ? (
+                  <>
+                    <span>Next</span>
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    <span>Submit</span>
+                    <span className="hidden sm:inline-block text-[11px] font-normal opacity-70 tracking-normal ml-1 px-1.5 py-0.5 rounded bg-black/15 dark:bg-white/20">
+                      ⌘ Enter
+                    </span>
+                  </>
+                )}
               </button>
             </div>
             {submitError && (
-              <p role="alert" className="border-2 border-black bg-[#ffd6d6] px-4 py-3 text-sm font-bold text-black">
-                {submitError}
-              </p>
+              <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/40 p-4 text-sm font-medium text-rose-800 dark:text-rose-300">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span>{submitError}</span>
+                </div>
+              </div>
             )}
           </form>
         </div>
@@ -810,11 +955,17 @@ function sanitizeUrl(url: string): string {
 
 function PoweredBy({ dark, font }: { dark: boolean; font: string }) {
   return (
-    <footer className="flex w-full items-center justify-center gap-2 py-8 text-xs font-mono font-bold" style={{ fontFamily: font }}>
-      <span className="border-2 border-black bg-white px-3 py-1 text-black shadow-[2px_2px_0px_#000] inline-flex items-center gap-2">
-        <LogoMark className="h-4 w-4" />
-        <span>POWERED BY FOLLY.SO</span>
-      </span>
+    <footer className="flex w-full items-center justify-center py-8">
+      <a
+        href="https://folly.so"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/70 backdrop-blur-sm shadow-xs transition hover:border-neutral-300 dark:hover:border-neutral-700"
+        style={{ fontFamily: font }}
+      >
+        <LogoMark className="h-3.5 w-3.5" />
+        <span>Powered by Folly</span>
+      </a>
     </footer>
   )
 }
