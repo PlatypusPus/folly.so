@@ -71,69 +71,77 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
     }
   }, [containerRef])
 
-  const formatSelection = (wrapper: string, endWrapper = wrapper) => {
-    let range = savedRangeRef.current
-    const sel = window.getSelection()
-
-    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
-      range = sel.getRangeAt(0)
-    }
-
-    if (!range) return
-    const text = range.toString()
-    if (!text) return
-
-    let nextText = ''
-    if (text.startsWith(wrapper) && text.endsWith(endWrapper)) {
-      nextText = text.slice(wrapper.length, text.length - endWrapper.length)
-    } else {
-      nextText = `${wrapper}${text}${endWrapper}`
-    }
-
-    // Use document.execCommand('insertText') if supported to preserve undo stack,
-    // otherwise manual DOM node replacement
-    let inserted = false
-    try {
-      if (sel) {
-        sel.removeAllRanges()
-        sel.addRange(range)
-        inserted = document.execCommand('insertText', false, nextText)
-      }
-    } catch {
-      inserted = false
-    }
-
-    let targetEl: HTMLElement | null = null
-
-    if (!inserted) {
-      range.deleteContents()
-      const textNode = document.createTextNode(nextText)
-      range.insertNode(textNode)
-
-      const newRange = document.createRange()
-      newRange.selectNodeContents(textNode)
-      sel?.removeAllRanges()
-      sel?.addRange(newRange)
-      savedRangeRef.current = newRange.cloneRange()
-      targetEl = textNode.parentElement
-    } else {
-      const activeSel = window.getSelection()
-      if (activeSel && activeSel.rangeCount > 0) {
-        savedRangeRef.current = activeSel.getRangeAt(0).cloneRange()
-        targetEl = activeSel.anchorNode?.parentElement ?? null
-      }
-    }
-
-    // Traverse up to the closest contentEditable element and dispatch input event
+  const dispatchInput = (range: Range | null) => {
+    let targetEl: HTMLElement | null = (range?.commonAncestorContainer as HTMLElement) ?? null
+    if (targetEl && targetEl.nodeType === Node.TEXT_NODE) targetEl = targetEl.parentElement
     while (targetEl && !targetEl.isContentEditable && targetEl !== document.body) {
       targetEl = targetEl.parentElement
     }
-
     if (targetEl) {
       targetEl.dispatchEvent(new Event('input', { bubbles: true }))
       targetEl.dispatchEvent(new Event('change', { bubbles: true }))
     }
+  }
 
+  const execCmd = (cmd: string, val?: string) => {
+    let range = savedRangeRef.current
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      range = sel.getRangeAt(0)
+    }
+    if (!range) return
+
+    if (sel) {
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+
+    document.execCommand(cmd, false, val)
+    dispatchInput(range)
+    updatePosition()
+  }
+
+  const toggleWrap = (tagName: string, className?: string) => {
+    let range = savedRangeRef.current
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      range = sel.getRangeAt(0)
+    }
+    if (!range || range.collapsed) return
+
+    if (sel) {
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+
+    let parent = range.commonAncestorContainer as HTMLElement | null
+    if (parent && parent.nodeType === Node.TEXT_NODE) parent = parent.parentElement
+
+    let existingTag: HTMLElement | null = null
+    while (parent && parent.isContentEditable) {
+      if (parent.tagName.toLowerCase() === tagName.toLowerCase()) {
+        existingTag = parent
+        break
+      }
+      parent = parent.parentElement
+    }
+
+    if (existingTag) {
+      const text = existingTag.innerHTML
+      existingTag.outerHTML = text
+    } else {
+      const el = document.createElement(tagName)
+      if (className) el.className = className
+      try {
+        range.surroundContents(el)
+      } catch {
+        const frag = range.extractContents()
+        el.appendChild(frag)
+        range.insertNode(el)
+      }
+    }
+
+    dispatchInput(range)
     updatePosition()
   }
 
@@ -150,47 +158,25 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
     const url = window.prompt('Enter link URL:', 'https://')
     if (!url || !url.trim() || url === 'https://') return
 
-    const nextText = `[${text}](${url.trim()})`
-
-    let inserted = false
-    try {
-      if (sel) {
-        sel.removeAllRanges()
-        sel.addRange(range)
-        inserted = document.execCommand('insertText', false, nextText)
-      }
-    } catch {
-      inserted = false
+    if (sel) {
+      sel.removeAllRanges()
+      sel.addRange(range)
     }
 
-    let targetEl: HTMLElement | null = null
+    document.execCommand('createLink', false, url.trim())
 
-    if (!inserted) {
-      range.deleteContents()
-      const textNode = document.createTextNode(nextText)
-      range.insertNode(textNode)
-
-      const newRange = document.createRange()
-      newRange.selectNodeContents(textNode)
-      sel?.removeAllRanges()
-      sel?.addRange(newRange)
-      savedRangeRef.current = newRange.cloneRange()
-      targetEl = textNode.parentElement
-    } else {
-      const activeSel = window.getSelection()
-      if (activeSel && activeSel.rangeCount > 0) {
-        savedRangeRef.current = activeSel.getRangeAt(0).cloneRange()
-        targetEl = activeSel.anchorNode?.parentElement ?? null
-      }
-    }
-
+    let targetEl: HTMLElement | null = range.commonAncestorContainer as HTMLElement
+    if (targetEl && targetEl.nodeType === Node.TEXT_NODE) targetEl = targetEl.parentElement
     while (targetEl && !targetEl.isContentEditable && targetEl !== document.body) {
       targetEl = targetEl.parentElement
     }
-
     if (targetEl) {
-      targetEl.dispatchEvent(new Event('input', { bubbles: true }))
-      targetEl.dispatchEvent(new Event('change', { bubbles: true }))
+      targetEl.querySelectorAll('a').forEach((a) => {
+        a.setAttribute('target', '_blank')
+        a.setAttribute('rel', 'noopener noreferrer')
+        a.className = 'text-black font-bold underline decoration-2 underline-offset-2 hover:bg-[#ffe600] transition-colors'
+      })
+      dispatchInput(range)
     }
 
     updatePosition()
@@ -212,22 +198,22 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
         const key = e.key.toLowerCase()
         if (key === 'b') {
           e.preventDefault()
-          formatSelection('**')
+          execCmd('bold')
         } else if (key === 'i') {
           e.preventDefault()
-          formatSelection('*')
+          execCmd('italic')
         } else if (key === 'u') {
           e.preventDefault()
-          formatSelection('<u>', '</u>')
+          execCmd('underline')
         } else if (key === 'k') {
           e.preventDefault()
           formatLink()
         } else if (key === 'e') {
           e.preventDefault()
-          formatSelection('`')
+          toggleWrap('code', 'border border-black bg-[#ffe600]/30 px-1 py-0.5 font-mono text-[0.88em] font-bold text-black')
         } else if (key === 'h') {
           e.preventDefault()
-          formatSelection('==')
+          toggleWrap('mark', 'bg-[#ffe600] text-black font-bold px-1 border border-black shadow-[1px_1px_0px_#000]')
         }
       }
     }
@@ -254,7 +240,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('**')}
+        onClick={() => execCmd('bold')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-white hover:bg-[#ffe600] font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Bold (Ctrl+B)"
       >
@@ -266,7 +252,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('*')}
+        onClick={() => execCmd('italic')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-white hover:bg-[#5ce1e6] italic font-serif font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Italic (Ctrl+I)"
       >
@@ -278,7 +264,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('<u>', '</u>')}
+        onClick={() => execCmd('underline')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-white hover:bg-[#ff90e8] underline font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Underline (Ctrl+U)"
       >
@@ -290,7 +276,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('~~')}
+        onClick={() => execCmd('strikeThrough')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-white hover:bg-[#ff5a27] hover:text-white line-through font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Strikethrough"
       >
@@ -302,7 +288,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('==')}
+        onClick={() => toggleWrap('mark', 'bg-[#ffe600] text-black font-bold px-1 border border-black shadow-[1px_1px_0px_#000]')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-[#ffe600] hover:bg-yellow-300 font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Highlight (Ctrl+H)"
       >
@@ -314,7 +300,7 @@ export function SelectionToolbar({ containerRef }: { containerRef: React.RefObje
           e.preventDefault()
           e.stopPropagation()
         }}
-        onClick={() => formatSelection('`')}
+        onClick={() => toggleWrap('code', 'border border-black bg-[#ffe600]/30 px-1 py-0.5 font-mono text-[0.88em] font-bold text-black')}
         className="flex h-7 w-7 items-center justify-center border border-black bg-white hover:bg-neutral-100 font-mono text-[10px] font-black shadow-[1px_1px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition"
         title="Inline code (Ctrl+E)"
       >

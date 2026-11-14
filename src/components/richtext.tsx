@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+export { markdownToHtml, htmlToMarkdown } from '../lib/richtext.ts'
 
 export function RichText({ text }: { text: string }) {
   if (!text) return null
@@ -12,11 +13,20 @@ export function RichText({ text }: { text: string }) {
   // 6. Underline: <u>text</u>, __text__
   // 7. Highlight: <mark>text</mark>, ==text==
   // 8. Italic: *text*, _text_, <i>text</i>, <em>text</em>
-  const regex = /(\[[^\]]+\]\([^)]+\)|<a\s+[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>|\*\*[^*]+\*\*|<b>[\s\S]*?<\/b>|<strong>[\s\S]*?<\/strong>|~~[^~]+~~|<s>[\s\S]*?<\/s>|<del>[\s\S]*?<\/del>|<strike>[\s\S]*?<\/strike>|`[^`]+`|<code>[\s\S]*?<\/code>|<u>[\s\S]*?<\/u>|__[^_]+__|==[^=]+==|<mark>[\s\S]*?<\/mark>|\*[^*]+\*|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>)/gi
+  const regex = /(\[[^\]]+\]\([^)]+\)|<a\b[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>|\*\*[^*]+\*\*|<b\b[^>]*>[\s\S]*?<\/b>|<strong\b[^>]*>[\s\S]*?<\/strong>|~~[^~]+~~|<s\b[^>]*>[\s\S]*?<\/s>|<del\b[^>]*>[\s\S]*?<\/del>|<strike\b[^>]*>[\s\S]*?<\/strike>|`[^`]+`|<code\b[^>]*>[\s\S]*?<\/code>|<u\b[^>]*>[\s\S]*?<\/u>|__[^_]+__|==[^=]+==|<mark\b[^>]*>[\s\S]*?<\/mark>|\*[^*]+\*|<i\b[^>]*>[\s\S]*?<\/i>|<em\b[^>]*>[\s\S]*?<\/em>)/gi
   const parts: ReactNode[] = []
   let last = 0
   let m: RegExpExecArray | null
   let key = 0
+
+  const getInner = (str: string) => {
+    const start = str.indexOf('>')
+    const end = str.lastIndexOf('<')
+    if (start !== -1 && end !== -1 && end > start) {
+      return str.slice(start + 1, end)
+    }
+    return str
+  }
 
   while ((m = regex.exec(text)) !== null) {
     if (m.index > last) {
@@ -41,11 +51,10 @@ export function RichText({ text }: { text: string }) {
           {label}
         </a>,
       )
-    } else if (lower.startsWith('<a ') && lower.endsWith('</a>')) {
+    } else if (lower.startsWith('<a') && lower.endsWith('</a>')) {
       const hrefMatch = token.match(/href=["']([^"']*)["']/i)
-      const contentMatch = token.match(/>([\s\S]*?)<\/a>/i)
       const url = hrefMatch ? hrefMatch[1] : '#'
-      const label = contentMatch ? contentMatch[1] : url
+      const label = getInner(token) || url
       parts.push(
         <a
           key={key++}
@@ -64,16 +73,10 @@ export function RichText({ text }: { text: string }) {
           {token.slice(2, -2)}
         </strong>,
       )
-    } else if (lower.startsWith('<b>') && lower.endsWith('</b>')) {
+    } else if ((lower.startsWith('<b') && lower.endsWith('</b>')) || (lower.startsWith('<strong') && lower.endsWith('</strong>'))) {
       parts.push(
         <strong key={key++} className="font-black text-current">
-          {token.slice(3, -4)}
-        </strong>,
-      )
-    } else if (lower.startsWith('<strong>') && lower.endsWith('</strong>')) {
-      parts.push(
-        <strong key={key++} className="font-black text-current">
-          {token.slice(8, -9)}
+          {getInner(token)}
         </strong>,
       )
     } else if (token.startsWith('~~') && token.endsWith('~~')) {
@@ -82,22 +85,10 @@ export function RichText({ text }: { text: string }) {
           {token.slice(2, -2)}
         </span>,
       )
-    } else if (lower.startsWith('<s>') && lower.endsWith('</s>')) {
+    } else if (lower.startsWith('<s') || lower.startsWith('<del') || lower.startsWith('<strike')) {
       parts.push(
         <span key={key++} className="line-through decoration-2 opacity-75">
-          {token.slice(3, -4)}
-        </span>,
-      )
-    } else if (lower.startsWith('<del>') && lower.endsWith('</del>')) {
-      parts.push(
-        <span key={key++} className="line-through decoration-2 opacity-75">
-          {token.slice(5, -6)}
-        </span>,
-      )
-    } else if (lower.startsWith('<strike>') && lower.endsWith('</strike>')) {
-      parts.push(
-        <span key={key++} className="line-through decoration-2 opacity-75">
-          {token.slice(8, -9)}
+          {getInner(token)}
         </span>,
       )
     } else if (token.startsWith('`') && token.endsWith('`')) {
@@ -106,16 +97,16 @@ export function RichText({ text }: { text: string }) {
           {token.slice(1, -1)}
         </code>,
       )
-    } else if (lower.startsWith('<code>') && lower.endsWith('</code>')) {
+    } else if (lower.startsWith('<code') && lower.endsWith('</code>')) {
       parts.push(
         <code key={key++} className="border border-black bg-[#ffe600]/30 px-1.5 py-0.5 font-mono text-[0.88em] font-bold text-black">
-          {token.slice(6, -7)}
+          {getInner(token)}
         </code>,
       )
-    } else if (lower.startsWith('<u>') && lower.endsWith('</u>')) {
+    } else if (lower.startsWith('<u') && lower.endsWith('</u>')) {
       parts.push(
         <u key={key++} className="underline underline-offset-3 decoration-2">
-          {token.slice(3, -4)}
+          {getInner(token)}
         </u>,
       )
     } else if (token.startsWith('__') && token.endsWith('__')) {
@@ -124,10 +115,10 @@ export function RichText({ text }: { text: string }) {
           {token.slice(2, -2)}
         </u>,
       )
-    } else if (lower.startsWith('<mark>') && lower.endsWith('</mark>')) {
+    } else if (lower.startsWith('<mark') && lower.endsWith('</mark>')) {
       parts.push(
         <mark key={key++} className="bg-[#ffe600] text-black font-bold px-1 border border-black shadow-[1px_1px_0px_#000]">
-          {token.slice(6, -7)}
+          {getInner(token)}
         </mark>,
       )
     } else if (token.startsWith('==') && token.endsWith('==')) {
@@ -142,16 +133,10 @@ export function RichText({ text }: { text: string }) {
           {token.slice(1, -1)}
         </em>,
       )
-    } else if (lower.startsWith('<i>') && lower.endsWith('</i>')) {
+    } else if ((lower.startsWith('<i') && lower.endsWith('</i>')) || (lower.startsWith('<em') && lower.endsWith('</em>'))) {
       parts.push(
         <em key={key++} className="italic font-serif">
-          {token.slice(3, -4)}
-        </em>,
-      )
-    } else if (lower.startsWith('<em>') && lower.endsWith('</em>')) {
-      parts.push(
-        <em key={key++} className="italic font-serif">
-          {token.slice(4, -5)}
+          {getInner(token)}
         </em>,
       )
     }
