@@ -12,6 +12,7 @@ import { LogicDrawer } from '../components/editor/LogicDrawer'
 import { rowLayout, resolveRow, canJoinColumn } from '../lib/layout'
 import { embedInfo } from '../lib/embed'
 import { themeFont } from '../components/ui'
+import { markdownToHtml, htmlToMarkdown } from '../components/richtext'
 
 type Anchor = 'end' | 'start'
 
@@ -950,8 +951,12 @@ function DescriptionEditor({
 
   useEffect(() => {
     const el = ref.current
-    if (el && document.activeElement !== el && el.textContent !== (description ?? '')) {
-      el.textContent = description ?? ''
+    if (el && document.activeElement !== el) {
+      const curMd = htmlToMarkdown(el).trim()
+      const targetMd = (description ?? '').trim()
+      if (curMd !== targetMd) {
+        el.innerHTML = markdownToHtml(description ?? '')
+      }
     }
   }, [description])
 
@@ -973,7 +978,7 @@ function DescriptionEditor({
     }
   }, [focused])
 
-  const commit = () => onChange((ref.current?.textContent ?? '').trim())
+  const commit = () => onChange(ref.current ? htmlToMarkdown(ref.current).trim() : '')
 
   const applyFormat = (pre: string, post: string) => {
     const el = ref.current
@@ -1033,7 +1038,7 @@ function DescriptionEditor({
           commit()
         }}
         onFocus={() => setFocused(true)}
-        onInput={() => onChange(ref.current?.textContent ?? '')}
+        onInput={() => onChange(ref.current ? htmlToMarkdown(ref.current) : '')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
@@ -1205,7 +1210,7 @@ function Rail({
   onDragEnd: () => void
 }) {
   return (
-    <div className="absolute left-1.5 top-2 flex flex-col items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 z-10">
+    <div className="absolute left-1.5 sm:left-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 z-10">
       <span
         draggable
         onDragStart={(e) => {
@@ -1288,8 +1293,12 @@ function BlockRow({
 
   useEffect(() => {
     const el = questionRef.current
-    if (el && el !== document.activeElement && el.textContent !== block.text) {
-      el.textContent = block.text
+    if (el && el !== document.activeElement) {
+      const curMd = htmlToMarkdown(el).trim()
+      const targetMd = (block.text ?? '').trim()
+      if (curMd !== targetMd) {
+        el.innerHTML = markdownToHtml(block.text ?? '')
+      }
     }
   }, [block.text])
 
@@ -1315,9 +1324,9 @@ function BlockRow({
   const handleQuestionInput = () => {
     const el = questionRef.current
     if (!el) return
-    const raw = el.textContent ?? ''
-    onText(raw)
-    onInput(raw, el)
+    const md = htmlToMarkdown(el)
+    onText(md)
+    onInput(md, el)
   }
 
   const updateOption = (id: string, label: string) => {
@@ -1388,7 +1397,19 @@ function BlockRow({
     }
   }
 
-  const wrapperCls = `group relative rounded-xl pl-9 sm:pl-10 pr-2 transition ${
+  const blockInlineStyle: React.CSSProperties = {
+    fontFamily: block.font ? themeFont(block.font) : undefined,
+    textAlign: block.textAlign,
+    color: block.textColor,
+    backgroundColor: block.bgColor,
+  }
+  const cardBorderCls = block.cardBorder
+    ? 'border-2 border-black shadow-[4px_4px_0px_#000] my-2 !p-3 !pl-10 sm:!pl-11'
+    : block.bgColor
+      ? 'border border-black/20 my-1 !p-2 !pl-10 sm:!pl-11 rounded-xl shadow-[2px_2px_0px_#000]'
+      : ''
+
+  const wrapperCls = `group relative rounded-xl pl-9 sm:pl-10 pr-2 transition ${cardBorderCls} ${
     active ? 'bg-ink/[0.035] ring-1 ring-ink/[0.04]' : 'hover:bg-ink/[0.02]'
   }`
 
@@ -1406,6 +1427,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-2`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1430,6 +1452,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-2`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1450,6 +1473,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1476,6 +1500,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1500,6 +1525,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1526,6 +1552,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1549,6 +1576,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1570,6 +1598,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1607,7 +1636,36 @@ function BlockRow({
               >
                 {o.label}
               </span>
+              {(o.isCorrect || (o.points !== undefined && o.points > 0)) && (
+                <span className="inline-flex items-center gap-1 border border-black bg-[#00ef84] px-1.5 py-0.5 text-[10px] font-mono font-black uppercase text-black shadow-[1px_1px_0px_#000]">
+                  ✓ {o.points !== undefined ? `${o.points} pt${o.points === 1 ? '' : 's'}` : 'Correct'}
+                </span>
+              )}
               <span className="hidden shrink-0 items-center gap-0.5 text-ink/30 group-hover/opt:flex">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    const options = (block.options ?? []).map((opt) =>
+                      opt.id === o.id
+                        ? {
+                            ...opt,
+                            isCorrect: !opt.isCorrect,
+                            points: !opt.isCorrect ? (opt.points ?? 1) : undefined,
+                          }
+                        : opt,
+                    )
+                    updateBlock(formId, block.id, { options })
+                  }}
+                  className={`flex h-6 w-6 items-center justify-center rounded-md border text-xs font-black transition ${
+                    o.isCorrect
+                      ? 'border-black bg-[#00ef84] text-black shadow-[1px_1px_0px_#000]'
+                      : 'border-transparent text-ink/40 hover:border-black hover:bg-white hover:text-black'
+                  }`}
+                  title={o.isCorrect ? 'Remove correct mark' : 'Mark as correct (+1 pt)'}
+                >
+                  ✓
+                </button>
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => moveOption(o.id, -1)}
@@ -1713,6 +1771,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1763,7 +1822,7 @@ function BlockRow({
 
   if (block.type === 'signature') {
     return (
-      <div onDragOver={onDragZone} onDrop={onDropBlock} className={`${wrapperCls} py-1.5`}>
+      <div onDragOver={onDragZone} onDrop={onDropBlock} className={`${wrapperCls} py-1.5`} style={blockInlineStyle}>
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
@@ -1797,7 +1856,7 @@ function BlockRow({
     }
     const count = sources.filter((b) => selected.includes(b.id)).length
     return (
-      <div onDragOver={onDragZone} onDrop={onDropBlock} className={`${wrapperCls} py-1.5`}>
+      <div onDragOver={onDragZone} onDrop={onDropBlock} className={`${wrapperCls} py-1.5`} style={blockInlineStyle}>
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
         <Rail onOpenSettings={onOpenSettings} onDragStart={onDragStart} onDragEnd={onDragEnd} />
@@ -1851,6 +1910,7 @@ function BlockRow({
         onDragOver={onDragZone}
         onDrop={onDropBlock}
         className={`${wrapperCls} py-1.5`}
+        style={blockInlineStyle}
       >
         {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}
@@ -1893,10 +1953,38 @@ function BlockRow({
               >
                 {o.label}
               </span>
+              {(o.isCorrect || (o.points !== undefined && o.points > 0)) && (
+                <span className="inline-flex items-center gap-1 border border-black bg-[#00ef84] px-1.5 py-0.5 text-[10px] font-mono font-black uppercase text-black shadow-[1px_1px_0px_#000]">
+                  ✓ {o.points !== undefined ? `${o.points} pt${o.points === 1 ? '' : 's'}` : 'Correct'}
+                </span>
+              )}
               <span
                 onMouseDown={(e) => e.preventDefault()}
-                className="hidden shrink-0 text-ink/30 transition group-hover/opt:opacity-100 lg:block lg:opacity-0"
+                className="hidden shrink-0 items-center gap-0.5 text-ink/30 transition group-hover/opt:opacity-100 lg:flex lg:opacity-0"
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const options = (block.options ?? []).map((opt) =>
+                      opt.id === o.id
+                        ? {
+                            ...opt,
+                            isCorrect: !opt.isCorrect,
+                            points: !opt.isCorrect ? (opt.points ?? 1) : undefined,
+                          }
+                        : opt,
+                    )
+                    updateBlock(formId, block.id, { options })
+                  }}
+                  className={`flex h-6 w-6 items-center justify-center rounded-md border text-xs font-black transition ${
+                    o.isCorrect
+                      ? 'border-black bg-[#00ef84] text-black shadow-[1px_1px_0px_#000]'
+                      : 'border-transparent text-ink/40 hover:border-black hover:bg-white hover:text-black'
+                  }`}
+                  title={o.isCorrect ? 'Remove correct mark' : 'Mark as correct (+1 pt)'}
+                >
+                  ✓
+                </button>
                 <button
                   onClick={() => removeOption(o.id)}
                   className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-brand-50 hover:text-brand-600"
@@ -1948,6 +2036,7 @@ function BlockRow({
       onDragOver={onDragZone}
       onDrop={onDropBlock}
       className={`${wrapperCls} py-1.5`}
+      style={blockInlineStyle}
     >
       {overIndex && <InsertLine />}
         {colZoneSide && <ColEdgeLine side={colZoneSide} />}

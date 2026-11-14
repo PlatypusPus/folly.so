@@ -36,6 +36,8 @@ export type BlockType =
 export interface ChoiceOption {
   id: string
   label: string
+  isCorrect?: boolean
+  points?: number
 }
 
 export interface LogicCondition {
@@ -76,6 +78,14 @@ export interface Block {
   matrixRows?: string[]
   matrixColumns?: string[]
   scoreSourceIds?: string[]
+  /** Whether to show calculation/score block to respondents while filling out form (default false for quizzes) */
+  showDuringForm?: boolean
+  /** Per-block typography & style overrides */
+  font?: FormTheme['font']
+  textAlign?: 'left' | 'center' | 'right'
+  textColor?: string
+  bgColor?: string
+  cardBorder?: boolean
   imageUrl?: string
   imageCaption?: string
   embedUrl?: string

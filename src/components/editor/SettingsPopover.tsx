@@ -20,7 +20,7 @@ export function SettingsPopover({
   count: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [tab, setTab] = useState<'type' | 'settings'>('settings')
+  const [tab, setTab] = useState<'type' | 'settings' | 'style'>('settings')
   const formId = form.id
   const block = form.blocks.find((b) => b.id === blockId)
   const updateBlock = useForms((s) => s.updateBlock)
@@ -82,19 +82,27 @@ export function SettingsPopover({
         <div className="flex gap-1.5 font-mono text-xs">
           <button
             onClick={() => setTab('type')}
-            className={`border-2 border-black px-2.5 py-0.5 font-black uppercase transition ${
+            className={`border-2 border-black px-2 py-0.5 font-black uppercase transition ${
               tab === 'type' ? 'bg-black text-white shadow-[1px_1px_0px_#ffe600]' : 'bg-white text-black shadow-[1px_1px_0px_#000]'
             }`}
           >
-            BLOCK TYPE
+            TYPE
           </button>
           <button
             onClick={() => setTab('settings')}
-            className={`border-2 border-black px-2.5 py-0.5 font-black uppercase transition ${
+            className={`border-2 border-black px-2 py-0.5 font-black uppercase transition ${
               tab === 'settings' ? 'bg-black text-white shadow-[1px_1px_0px_#ffe600]' : 'bg-white text-black shadow-[1px_1px_0px_#000]'
             }`}
           >
             SETTINGS
+          </button>
+          <button
+            onClick={() => setTab('style')}
+            className={`border-2 border-black px-2 py-0.5 font-black uppercase transition ${
+              tab === 'style' ? 'bg-black text-white shadow-[1px_1px_0px_#ffe600]' : 'bg-white text-black shadow-[1px_1px_0px_#000]'
+            }`}
+          >
+            STYLE 🎨
           </button>
         </div>
         <button
@@ -200,6 +208,107 @@ export function SettingsPopover({
                       className="w-full rounded-lg border border-ink/15 px-2 py-1.5 text-[13px] outline-none focus:border-ink"
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+            {['multipleChoice', 'checkbox', 'dropdown', 'multiSelect'].includes(block.type) && (
+              <div className="mt-2 border-t-2 border-black bg-[#fffdfa] p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-black uppercase text-black">
+                    Quiz & Points
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opts = (block.options ?? []).map((o) => ({
+                          ...o,
+                          isCorrect: true,
+                          points: o.points !== undefined && o.points > 0 ? o.points : 1,
+                        }))
+                        updateBlock(formId, block.id, { options: opts })
+                      }}
+                      className="border border-black bg-[#ffe600] px-1.5 py-0.5 font-mono text-[10px] font-black uppercase shadow-[1px_1px_0px_#000] hover:bg-yellow-400 cursor-pointer"
+                      title="Award 1 pt to all options"
+                    >
+                      Points to All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opts = (block.options ?? []).map((o) => ({
+                          ...o,
+                          isCorrect: false,
+                          points: undefined,
+                        }))
+                        updateBlock(formId, block.id, { options: opts })
+                      }}
+                      className="border border-black bg-white px-1.5 py-0.5 font-mono text-[10px] font-black uppercase text-neutral-600 shadow-[1px_1px_0px_#000] hover:bg-neutral-100 cursor-pointer"
+                      title="Clear quiz points from all options"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="text-[11px] font-bold text-neutral-600 font-mono">
+                  Mark correct answer(s) and award points:
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {(block.options ?? []).map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="flex items-center gap-2 border-2 border-black bg-white p-1.5 shadow-[2px_2px_0px_#000]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!opt.isCorrect}
+                        onChange={(e) => {
+                          const opts = (block.options ?? []).map((o) =>
+                            o.id === opt.id
+                              ? {
+                                  ...o,
+                                  isCorrect: e.target.checked,
+                                  points: e.target.checked ? (o.points ?? 1) : undefined,
+                                }
+                              : o,
+                          )
+                          updateBlock(formId, block.id, { options: opts })
+                        }}
+                        className="h-4 w-4 border-2 border-black accent-[#00ef84] cursor-pointer"
+                        title="Mark as correct answer"
+                      />
+                      <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-bold text-black">
+                        {opt.label || 'Option'}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-[10px] font-black uppercase text-neutral-500">Pts:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={opt.points !== undefined ? opt.points : opt.isCorrect ? 1 : 0}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? 0 : Number(e.target.value)
+                            const opts = (block.options ?? []).map((o) =>
+                              o.id === opt.id
+                                ? {
+                                    ...o,
+                                    points: val,
+                                    isCorrect: val > 0,
+                                  }
+                                : o,
+                            )
+                            updateBlock(formId, block.id, { options: opts })
+                          }}
+                          className="w-12 border border-black bg-white px-1 py-0.5 text-center font-mono text-[11px] font-bold text-black outline-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {(block.options ?? []).length === 0 && (
+                    <div className="font-mono text-[11px] text-neutral-400 italic">No options defined.</div>
+                  )}
                 </div>
               </div>
             )}
@@ -465,6 +574,21 @@ export function SettingsPopover({
                    {questions.length === 0 && (
                       <div className="font-mono text-[11px] text-neutral-400 italic">No questions available.</div>
                    )}
+                 </div>
+
+                 <div className="mt-2 pt-2 border-t border-black/10">
+                   <label className="flex items-center justify-between cursor-pointer">
+                     <div>
+                       <div className="font-mono text-xs font-black uppercase text-black">Show Live in Form</div>
+                       <div className="text-[10px] font-mono text-neutral-500">OFF = Hidden until submission (Quiz mode)</div>
+                     </div>
+                     <input
+                       type="checkbox"
+                       checked={!!block.showDuringForm}
+                       onChange={(e) => updateBlock(formId, block.id, { showDuringForm: e.target.checked })}
+                       className="h-4 w-4 border-2 border-black accent-[#ffe600] cursor-pointer"
+                     />
+                   </label>
                  </div>
               </div>
             )}
@@ -750,6 +874,135 @@ export function SettingsPopover({
               <ActionBtn danger onClick={() => removeBlock(form.id, block.id)}>
                 ✕ Delete
               </ActionBtn>
+            </div>
+          </div>
+        )}
+
+        {tab === 'style' && (
+          <div className="space-y-3.5 p-1 font-mono text-xs">
+            {/* Font Family */}
+            <div>
+              <label className="block text-[11px] font-black uppercase text-black mb-1">
+                Typography / Font
+              </label>
+              <select
+                value={block.font || ''}
+                onChange={(e) => updateBlock(formId, block.id, { font: e.target.value ? (e.target.value as any) : undefined })}
+                className="w-full border-2 border-black bg-white px-2 py-1.5 font-mono text-xs font-bold text-black outline-none shadow-[2px_2px_0px_#000] cursor-pointer"
+              >
+                <option value="">Form Default ({form.settings.theme.font})</option>
+                <option value="system">System (Inter Sans)</option>
+                <option value="playful">Space Grotesk (Playful)</option>
+                <option value="serif">Georgia (Editorial Serif)</option>
+                <option value="classic">Palatino (Classic Book)</option>
+                <option value="rounded">SF Pro Rounded (Friendly)</option>
+                <option value="geometric">Futura (Geometric Sans)</option>
+                <option value="typewriter">Monospace / Typewriter</option>
+              </select>
+            </div>
+
+            {/* Text Alignment */}
+            <div>
+              <label className="block text-[11px] font-black uppercase text-black mb-1">
+                Text Alignment
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['left', 'center', 'right'] as const).map((align) => (
+                  <button
+                    key={align}
+                    type="button"
+                    onClick={() => updateBlock(formId, block.id, { textAlign: block.textAlign === align ? undefined : align })}
+                    className={`border-2 border-black py-1 font-mono text-xs font-black uppercase transition cursor-pointer ${
+                      block.textAlign === align || (!block.textAlign && align === 'left')
+                        ? 'bg-[#ffe600] shadow-[2px_2px_0px_#000]'
+                        : 'bg-white shadow-[1px_1px_0px_#000] hover:bg-neutral-50'
+                    }`}
+                  >
+                    {align === 'left' ? '⫷ Left' : align === 'center' ? '≡ Center' : 'Right ⫸'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Card Background Color */}
+            <div>
+              <label className="block text-[11px] font-black uppercase text-black mb-1">
+                Block Background Color
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { name: 'Transparent', color: '' },
+                  { name: 'White', color: '#ffffff' },
+                  { name: 'Warm Cream', color: '#fffdfa' },
+                  { name: 'Yellow', color: '#ffe600' },
+                  { name: 'Pink', color: '#ff90e8' },
+                  { name: 'Cyan', color: '#5ce1e6' },
+                  { name: 'Mint', color: '#00ef84' },
+                  { name: 'Orange', color: '#ff5a27' },
+                  { name: 'Dark Slate', color: '#18181b' },
+                ].map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => updateBlock(formId, block.id, { bgColor: c.color || undefined })}
+                    style={{ backgroundColor: c.color || 'transparent' }}
+                    className={`h-7 w-7 border-2 border-black shadow-[1px_1px_0px_#000] transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ${
+                      block.bgColor === c.color || (!block.bgColor && !c.color) ? 'ring-2 ring-black ring-offset-1' : ''
+                    }`}
+                    title={c.name}
+                  >
+                    {!c.color && <span className="text-[10px] font-black">✕</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Text Color */}
+            <div>
+              <label className="block text-[11px] font-black uppercase text-black mb-1">
+                Text Color
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { name: 'Default', color: '' },
+                  { name: 'Black', color: '#000000' },
+                  { name: 'Dark Slate', color: '#334155' },
+                  { name: 'Blue', color: '#2563eb' },
+                  { name: 'Purple', color: '#7c3aed' },
+                  { name: 'Crimson', color: '#dc2626' },
+                  { name: 'Emerald', color: '#059669' },
+                  { name: 'White', color: '#ffffff' },
+                ].map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => updateBlock(formId, block.id, { textColor: c.color || undefined })}
+                    style={{ backgroundColor: c.color || 'transparent' }}
+                    className={`h-7 w-7 border-2 border-black shadow-[1px_1px_0px_#000] transition active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ${
+                      block.textColor === c.color || (!block.textColor && !c.color) ? 'ring-2 ring-black ring-offset-1' : ''
+                    }`}
+                    title={c.name}
+                  >
+                    {!c.color && <span className="text-[10px] font-black">✕</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Card Frame Toggle */}
+            <div className="pt-2 border-t border-black/10">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div>
+                  <div className="font-mono text-xs font-black uppercase text-black">Card Frame & Shadow</div>
+                  <div className="text-[10px] font-mono text-neutral-500">Wrap in a 2px bordered card with hard shadow</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={!!block.cardBorder}
+                  onChange={(e) => updateBlock(formId, block.id, { cardBorder: e.target.checked })}
+                  className="h-4 w-4 border-2 border-black accent-[#ffe600] cursor-pointer"
+                />
+              </label>
             </div>
           </div>
         )}

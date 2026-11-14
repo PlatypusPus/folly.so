@@ -1,4 +1,4 @@
-import type { AnswerValue, Block, BlockType, Form, JumpRule } from '../types'
+import type { AnswerValue, Block, BlockType, ChoiceOption, Form, JumpRule } from '../types'
 
 export function getQuestionLabel(block: Block): string {
   const t = block.text.trim()
@@ -170,11 +170,87 @@ export function numericValue(answer: AnswerValue): number {
   return isNaN(n) ? 0 : n
 }
 
-function optionPoints(label: string, options: Array<{ label: string }>, direction: -1 | 1): number {
+function optionPoints(
+  label: string,
+  options: Array<ChoiceOption | { label: string; isCorrect?: boolean; points?: number }>,
+  direction: -1 | 1,
+): number {
+  const opt = options.find((o) => o.label === label)
+  if (!opt) return 0
+  const isQuizConfigured = options.some((o) => o.isCorrect !== undefined || o.points !== undefined)
+  if (isQuizConfigured) {
+    if (opt.points !== undefined) return Number(opt.points) || 0
+    if (opt.isCorrect) return 1
+    return 0
+  }
   const idx = options.findIndex((o) => o.label === label)
   if (idx === -1) return 0
   const position = idx + 1
   return direction === 1 ? position : options.length - idx
+}
+
+export function computeTotalQuizScore(
+  blocks: Block[],
+  answers: Record<string, AnswerValue>,
+): { totalScore: number; maxScore: number; hasQuiz: boolean } {
+  let totalScore = 0
+  let maxScore = 0
+  let hasQuiz = false
+
+  // 1. Calculate from question blocks with quiz options (isCorrect / points)
+  for (const b of blocks) {
+    if (['multipleChoice', 'checkbox', 'dropdown', 'multiSelect'].includes(b.type)) {
+      const options = b.options ?? []
+      const isQuizQuestion = options.some((o) => o.isCorrect !== undefined || (o.points !== undefined && o.points > 0))
+      if (isQuizQuestion) {
+        hasQuiz = true
+        const val = answers[b.id]
+        const selected = (Array.isArray(val) ? val : val !== undefined && val !== null && val !== '' ? [String(val)] : []) as string[]
+
+        let qScore = 0
+        for (const label of selected) {
+          qScore += optionPoints(label, options, 1)
+        }
+        totalScore += qScore
+
+        if (b.type === 'checkbox' || b.type === 'multiSelect' || b.allowMultiple) {
+          const possible = options.reduce((sum, o) => {
+            const pts = o.points !== undefined ? Math.max(0, o.points) : o.isCorrect ? 1 : 0
+            return sum + pts
+          }, 0)
+          maxScore += possible
+        } else {
+          const possible = options.reduce((max, o) => {
+            const pts = o.points !== undefined ? Math.max(0, o.points) : o.isCorrect ? 1 : 0
+            return Math.max(max, pts)
+          }, 0)
+          maxScore += possible
+        }
+      }
+    }
+  }
+
+  // 2. Fallback to explicit score blocks if no direct question quiz options
+  if (!hasQuiz) {
+    const scoreBlocks = blocks.filter((b) => b.type === 'score' && (b.scoreSourceIds ?? []).length > 0)
+    if (scoreBlocks.length > 0) {
+      hasQuiz = true
+      for (const sb of scoreBlocks) {
+        totalScore += computeScore(sb, answers, blocks)
+        for (const sid of sb.scoreSourceIds ?? []) {
+          const src = blocks.find((x) => x.id === sid)
+          if (!src) continue
+          if (src.type === 'rating') maxScore += src.ratingMax ?? 5
+          else if (src.type === 'linear') maxScore += src.linearMax ?? 5
+          else if (src.type === 'csat') maxScore += 5
+          else if (src.type === 'nps') maxScore += 10
+          else if (src.options && src.options.length > 0) maxScore += Math.max(...src.options.map((_, i) => i + 1))
+        }
+      }
+    }
+  }
+
+  return { totalScore, maxScore, hasQuiz }
 }
 
 export function computeScore(
